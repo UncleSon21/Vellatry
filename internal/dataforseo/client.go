@@ -12,15 +12,13 @@ import (
 	"io"
 	"math/rand/v2"
 	"net/http"
-	"sync"
 	"time"
+
+	"github.com/UncleSon21/vellatry/internal/platform/budget"
 )
 
 // DefaultBaseURL is the production API host.
 const DefaultBaseURL = "https://api.dataforseo.com"
-
-// ErrBudgetExceeded is returned before a paid call that would exceed the budget.
-var ErrBudgetExceeded = errors.New("dataforseo: budget exceeded")
 
 // APIError is a failed request or task.
 type APIError struct {
@@ -40,61 +38,15 @@ func IsTransient(err error) bool {
 	return errors.As(err, &ae) && ae.Transient
 }
 
-// Budget caps total spend in USD. It is safe for concurrent use.
-type Budget struct {
-	mu       sync.Mutex
-	limit    float64
-	spent    float64
-	pending  float64
-	estimate float64 // per-task reservation; raised to the highest cost observed
-}
-
-// NewBudget returns a budget of limitUSD, reserving initialEstimate per task until
-// real costs are observed.
-func NewBudget(limitUSD, initialEstimate float64) *Budget {
-	return &Budget{limit: limitUSD, estimate: initialEstimate}
-}
-
-// Reserve holds budget for n paid tasks. The returned release must be called exactly
-// once with the actual cost charged (0 if the call failed).
-func (b *Budget) Reserve(n int) (release func(actual float64), err error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	hold := b.estimate * float64(n)
-	if b.spent+b.pending+hold > b.limit {
-		return nil, fmt.Errorf("%w: spent $%.4f, pending $%.4f, limit $%.2f", ErrBudgetExceeded, b.spent, b.pending, b.limit)
-	}
-	b.pending += hold
-	var once sync.Once
-	return func(actual float64) {
-		once.Do(func() {
-			b.mu.Lock()
-			defer b.mu.Unlock()
-			b.pending -= hold
-			b.spent += actual
-			if n > 0 && actual/float64(n) > b.estimate {
-				b.estimate = actual / float64(n)
-			}
-		})
-	}, nil
-}
-
-// Spent returns the total charged so far.
-func (b *Budget) Spent() float64 {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.spent
-}
-
 // Config configures a Client.
 type Config struct {
 	Login, Password string
-	BaseURL         string        // default DefaultBaseURL
-	HTTPClient      *http.Client  // default http.DefaultClient
-	Concurrency     int           // max requests in flight, default 4
-	CallTimeout     time.Duration // per HTTP attempt, default 150s (live LLM tasks run up to 120s)
-	MaxRetries      int           // transient retries per call, default 3, negative disables
-	Budget          *Budget       // required
+	BaseURL         string         // default DefaultBaseURL
+	HTTPClient      *http.Client   // default http.DefaultClient
+	Concurrency     int            // max requests in flight, default 4
+	CallTimeout     time.Duration  // per HTTP attempt, default 150s (live LLM tasks run up to 120s)
+	MaxRetries      int            // transient retries per call, default 3, negative disables
+	Budget          *budget.Budget // required; paid calls fail with budget.ErrExceeded before sending
 }
 
 // Client talks to DataForSEO.

@@ -1,0 +1,25 @@
+# Local development: Postgres with pgvector.
+#   docker compose -f deploy/docker-compose.yml up -d
+# App and tests connect as vellatry_app, a non-superuser, because superusers bypass
+# row-level security and would hide isolation bugs.
+#   DATABASE_URL=postgres://vellatry_app:vellatry@localhost:5433/vellatry
+#   VELLATRY_TEST_DATABASE_URL=postgres://vellatry_app:vellatry@localhost:5433/vellatry_test
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:

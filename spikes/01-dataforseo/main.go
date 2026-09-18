@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/UncleSon21/vellatry/internal/dataforseo"
+	"github.com/UncleSon21/vellatry/internal/platform/budget"
 	"github.com/UncleSon21/vellatry/internal/visibility/detect"
 	"github.com/UncleSon21/vellatry/internal/visibility/gap"
 )
@@ -116,10 +117,10 @@ func main() {
 		log.Fatal("set DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD, or pass -dry-run")
 	}
 
-	budget := dataforseo.NewBudget(opts.budgetUSD, opts.estimateUSD)
+	spend := budget.New(opts.budgetUSD, opts.estimateUSD)
 	client, err := dataforseo.New(dataforseo.Config{
 		Login: login, Password: password, HTTPClient: httpClient,
-		Concurrency: opts.concurrency, Budget: budget,
+		Concurrency: opts.concurrency, Budget: spend,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -146,7 +147,7 @@ func main() {
 		runLive(ctx, client, jobs, opts, sink)
 	}
 
-	summary := summarize(sink.all(), opts, len(jobs), budget.Spent())
+	summary := summarize(sink.all(), opts, len(jobs), spend.Spent())
 	if err := os.WriteFile(filepath.Join(opts.outDir, "summary.md"), []byte(summary), 0o644); err != nil {
 		log.Fatal(err)
 	}
@@ -264,7 +265,7 @@ func runLive(ctx context.Context, c *dataforseo.Client, jobs []job, o options, s
 			for j := range queue {
 				start := time.Now()
 				a, err := c.Live(ctx, j.req)
-				if errors.Is(err, dataforseo.ErrBudgetExceeded) {
+				if errors.Is(err, budget.ErrExceeded) {
 					log.Printf("budget reached, stopping: %v", err)
 					cancel()
 					return
@@ -310,7 +311,7 @@ func runStandard(ctx context.Context, c *dataforseo.Client, jobs []job, o option
 					reqs[k] = j.req
 				}
 				posted, err := c.PostTasks(ctx, reqs)
-				if errors.Is(err, dataforseo.ErrBudgetExceeded) {
+				if errors.Is(err, budget.ErrExceeded) {
 					log.Printf("budget reached, no more tasks posted: %v", err)
 					return
 				}

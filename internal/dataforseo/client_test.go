@@ -12,6 +12,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/UncleSon21/vellatry/internal/platform/budget"
 )
 
 func fixture(t *testing.T, name string) []byte {
@@ -23,11 +25,11 @@ func fixture(t *testing.T, name string) []byte {
 	return b
 }
 
-func newTestClient(t *testing.T, h http.HandlerFunc, budget *Budget) *Client {
+func newTestClient(t *testing.T, h http.HandlerFunc, b *budget.Budget) *Client {
 	t.Helper()
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
-	c, err := New(Config{Login: "l", Password: "p", BaseURL: srv.URL, Budget: budget, CallTimeout: 5 * time.Second})
+	c, err := New(Config{Login: "l", Password: "p", BaseURL: srv.URL, Budget: b, CallTimeout: 5 * time.Second})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +48,7 @@ func TestLiveChatGPTParsesAndSendsBody(t *testing.T) {
 		b, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(b, &gotBody)
 		w.Write(fixture(t, "chatgpt_live.json"))
-	}, NewBudget(1, 0.01))
+	}, budget.New(1, 0.01))
 
 	a, err := c.Live(context.Background(), Request{Engine: ChatGPT, Keyword: "best mattress in a box Australia", LocationCode: 2036, LanguageCode: "en"})
 	if err != nil {
@@ -75,7 +77,7 @@ func TestGeminiOmitsForceWebSearch(t *testing.T) {
 		b, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(b, &gotBody)
 		w.Write(fixture(t, "chatgpt_live.json"))
-	}, NewBudget(1, 0.01))
+	}, budget.New(1, 0.01))
 	if _, err := c.Live(context.Background(), Request{Engine: Gemini, Keyword: "x", ForceWebSearch: true}); err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +87,7 @@ func TestGeminiOmitsForceWebSearch(t *testing.T) {
 }
 
 func TestAIOverviewReferencesAndAbsence(t *testing.T) {
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) { w.Write(fixture(t, "aio_live.json")) }, NewBudget(1, 0.01))
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) { w.Write(fixture(t, "aio_live.json")) }, budget.New(1, 0.01))
 	a, err := c.Live(context.Background(), Request{Engine: AIOverview, Keyword: "x"})
 	if err != nil {
 		t.Fatal(err)
@@ -97,7 +99,7 @@ func TestAIOverviewReferencesAndAbsence(t *testing.T) {
 		t.Errorf("want 2 deduplicated references from the AI Overview only, got %+v", a.Sources)
 	}
 
-	c = newTestClient(t, func(w http.ResponseWriter, r *http.Request) { w.Write(fixture(t, "aio_absent.json")) }, NewBudget(1, 0.01))
+	c = newTestClient(t, func(w http.ResponseWriter, r *http.Request) { w.Write(fixture(t, "aio_absent.json")) }, budget.New(1, 0.01))
 	a, err = c.Live(context.Background(), Request{Engine: AIOverview, Keyword: "x"})
 	if err != nil {
 		t.Fatal(err)
@@ -115,7 +117,7 @@ func TestRetriesTransientThenSucceeds(t *testing.T) {
 			return
 		}
 		w.Write(fixture(t, "chatgpt_live.json"))
-	}, NewBudget(1, 0.01))
+	}, budget.New(1, 0.01))
 	if _, err := c.Live(context.Background(), Request{Engine: ChatGPT, Keyword: "x"}); err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +131,7 @@ func TestDoesNotRetryPermanentErrors(t *testing.T) {
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
 		w.WriteHeader(http.StatusUnauthorized)
-	}, NewBudget(1, 0.01))
+	}, budget.New(1, 0.01))
 	_, err := c.Live(context.Background(), Request{Engine: ChatGPT, Keyword: "x"})
 	if err == nil || IsTransient(err) {
 		t.Fatalf("want permanent error, got %v", err)
@@ -141,30 +143,13 @@ func TestDoesNotRetryPermanentErrors(t *testing.T) {
 
 func TestBudgetFailsClosedBeforeSending(t *testing.T) {
 	var calls atomic.Int32
-	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) { calls.Add(1) }, NewBudget(0.01, 0.02))
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) { calls.Add(1) }, budget.New(0.01, 0.02))
 	_, err := c.Live(context.Background(), Request{Engine: ChatGPT, Keyword: "x"})
-	if !errors.Is(err, ErrBudgetExceeded) {
-		t.Fatalf("want ErrBudgetExceeded, got %v", err)
+	if !errors.Is(err, budget.ErrExceeded) {
+		t.Fatalf("want budget.ErrExceeded, got %v", err)
 	}
 	if calls.Load() != 0 {
 		t.Errorf("a refused call must not reach the API")
-	}
-}
-
-func TestBudgetRecordsActualCostAndRaisesEstimate(t *testing.T) {
-	b := NewBudget(0.01, 0.001)
-	release, err := b.Reserve(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	release(0.006)
-	release(0.006) // second release is ignored
-	if got := b.Spent(); got != 0.006 {
-		t.Errorf("spent = %v, want 0.006", got)
-	}
-	// Estimate is now 0.006, so another reservation would exceed 0.01.
-	if _, err := b.Reserve(1); !errors.Is(err, ErrBudgetExceeded) {
-		t.Errorf("want ErrBudgetExceeded after estimate rose, got %v", err)
 	}
 }
 
@@ -183,7 +168,7 @@ func TestPostAndGetTask(t *testing.T) {
 		default:
 			t.Errorf("unexpected path %s", r.URL.Path)
 		}
-	}, NewBudget(1, 0.001))
+	}, budget.New(1, 0.001))
 
 	posted, err := c.PostTasks(context.Background(), []Request{{Engine: ChatGPT, Keyword: "a", Tag: "a"}, {Engine: ChatGPT, Keyword: "b", Tag: "b"}})
 	if err != nil {

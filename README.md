@@ -12,7 +12,9 @@ blindspot into a fix whose outcome is measured.
 
 ## Status
 
-Pre-M0. Running spikes to answer the risky questions before building.
+M0 (foundation) in progress: schema with row-level security, tenant isolation tests,
+River job queue, event bus, LLM gateway with purpose/size/budget guards, and
+architecture tests. Spikes run alongside.
 
 | Spike | Question | State |
 | --- | --- | --- |
@@ -24,14 +26,30 @@ Pre-M0. Running spikes to answer the risky questions before building.
 ## Layout
 
 ```
-cmd/        binaries (later)
-internal/   production packages
-spikes/     throwaway experiments
-docs/       decisions and notes
+cmd/vellatry/   one binary: migrate | api | worker
+internal/       production packages (platform/, api/, visibility/, dataforseo/, archtest/)
+spikes/         throwaway experiments
+deploy/         local Postgres
+docs/           decisions and notes
+```
+
+## Run locally
+
+Requires Go 1.26+ and Docker.
+
+```bash
+docker compose -f deploy/docker-compose.yml up -d
+export DATABASE_URL=postgres://vellatry_app:vellatry@localhost:5433/vellatry
+go run ./cmd/vellatry migrate
+go run ./cmd/vellatry api      # http://localhost:8080/healthz
+go run ./cmd/vellatry worker
 ```
 
 ## Run the tests
 
 ```bash
-docker run --rm -v "$PWD":/src -w /src golang:1.25 go test ./...
+export VELLATRY_TEST_DATABASE_URL=postgres://vellatry_app:vellatry@localhost:5433/vellatry_test
+go test ./...
 ```
+
+Without `VELLATRY_TEST_DATABASE_URL` the database tests are skipped.

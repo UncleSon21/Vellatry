@@ -21,3 +21,7 @@ adding a new line that supersedes the old one, not by editing history.
 | 14 | 2026-09-18 | Fixes: instructions + Asana in v1; CMS drafts phase 2; GitHub PRs later and premium. No JavaScript-injected fixes. |
 | 15 | 2026-09-18 | Slack, email and Asana are outbound only. No Slack bot. |
 | 16 | 2026-09-18 | ChatGPT `force_web_search` off by default to match real user behaviour; spike 1 measures both settings. |
+| 17 | 2026-09-18 | Row-level security uses two roles chosen per transaction (`vellatry_tenant`, `vellatry_system`) with policies scoped `TO` each role, not a settable flag; the connecting owner matches no policy, so an unscoped query sees nothing. |
+| 18 | 2026-09-18 | River is the job queue and the outbox: events and subscriber jobs are written in the same transaction; no poller. |
+| 19 | 2026-09-18 | Architecture rules are tests (`internal/archtest`), not conventions. |
+| 20 | 2026-09-18 | The app never connects as a Postgres superuser (superusers bypass row-level security). |
