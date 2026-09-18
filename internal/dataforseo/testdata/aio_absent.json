@@ -1,0 +1,14 @@
+{
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "cost": 0.002,
+  "tasks": [
+    {
+      "id": "task-aio-2",
+      "status_code": 20000,
+      "status_message": "Ok.",
+      "cost": 0.002,
+      "result": [{"items": [{"type": "organic", "url": "https://www.xero.com/au/"}]}]
+    }
+  ]
+}

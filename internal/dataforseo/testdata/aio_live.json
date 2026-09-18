@@ -1,0 +1,32 @@
+{
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "cost": 0.002,
+  "tasks": [
+    {
+      "id": "task-aio-1",
+      "status_code": 20000,
+      "status_message": "Ok.",
+      "cost": 0.002,
+      "data": {"keyword": "best accounting software australia"},
+      "result": [
+        {
+          "items": [
+            {"type": "organic", "url": "https://www.xero.com/au/", "references": [{"url": "https://ignored.example"}]},
+            {
+              "type": "ai_overview",
+              "markdown": "Xero and MYOB are widely used in Australia.",
+              "items": [
+                {"type": "ai_overview_element", "references": [{"url": "https://www.myob.com/au", "source": "MYOB"}]}
+              ],
+              "references": [
+                {"url": "https://www.xero.com/au/accounting-software/", "title": "Xero"},
+                {"url": "https://www.myob.com/au", "title": "duplicate"}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

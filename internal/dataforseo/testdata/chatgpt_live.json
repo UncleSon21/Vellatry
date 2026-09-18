@@ -1,0 +1,36 @@
+{
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "cost": 0.004,
+  "tasks": [
+    {
+      "id": "task-chatgpt-1",
+      "status_code": 20000,
+      "status_message": "Ok.",
+      "cost": 0.004,
+      "data": {"keyword": "best mattress in a box Australia", "tag": "q1"},
+      "result": [
+        {
+          "model": "gpt-test",
+          "items": [
+            {
+              "type": "chat_gpt_text",
+              "sections": [
+                {"markdown": "Popular options include **Koala** and Ecosa."},
+                {"text": "Emma Sleep is another choice."}
+              ]
+            }
+          ],
+          "sources": [
+            {"url": "https://www.koala.com/en-au/mattress#reviews", "title": "Koala Mattress"},
+            {"url": "https://www.koala.com/en-au/mattress", "title": "duplicate after fragment strip"},
+            {"url": "https://www.choice.com.au/mattresses", "source": "CHOICE"}
+          ],
+          "search_results": [{"url": "https://a.example"}, {"url": "https://b.example"}],
+          "fan_out_queries": ["best mattress australia 2026", "koala vs ecosa"],
+          "brand_entities": [{"title": "Koala"}, {"title": "Ecosa"}]
+        }
+      ]
+    }
+  ]
+}

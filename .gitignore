@@ -1,0 +1,21 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# build and run output
+/bin/
+*.exe
+spikes/**/results/
+
+# editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# later: web and ml
+node_modules/
+.next/
+__pycache__/
+.venv/

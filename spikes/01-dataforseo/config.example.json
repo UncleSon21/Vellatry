@@ -1,0 +1,40 @@
+{
+  "location_code": 2036,
+  "language_code": "en",
+  "sets": [
+    {
+      "name": "accounting software",
+      "brand": {"name": "Xero", "aliases": ["Xero Accounting"], "domains": ["xero.com"]},
+      "competitors": [
+        {"name": "MYOB", "domains": ["myob.com"]},
+        {"name": "QuickBooks", "aliases": ["Intuit QuickBooks"], "domains": ["quickbooks.intuit.com"]},
+        {"name": "Reckon", "domains": ["reckon.com"]}
+      ],
+      "queries": [
+        "best accounting software for small business in Australia",
+        "Xero vs MYOB for a small business",
+        "cheapest accounting software in Australia",
+        "accounting software for sole traders in Australia",
+        "which accounting software do Australian accountants recommend",
+        "how do I lodge BAS for a small business"
+      ]
+    },
+    {
+      "name": "mattresses",
+      "brand": {"name": "Koala", "aliases": ["Koala Mattress"], "exclusions": ["koala bear", "koalas"], "domains": ["koala.com"]},
+      "competitors": [
+        {"name": "Ecosa", "domains": ["ecosa.com.au"]},
+        {"name": "Emma", "aliases": ["Emma Sleep"], "domains": ["emma-sleep.com.au"]},
+        {"name": "Sleeping Duck", "domains": ["sleepingduck.com"]}
+      ],
+      "queries": [
+        "best mattress in a box in Australia",
+        "Koala vs Ecosa mattress",
+        "best mattress for back pain in Australia",
+        "where to buy a mattress online in Australia",
+        "best budget mattress in Australia",
+        "most comfortable mattress in Australia"
+      ]
+    }
+  ]
+}
