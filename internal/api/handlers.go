@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/UncleSon21/vellatry/internal/automation"
 	"github.com/UncleSon21/vellatry/internal/brand"
 	"github.com/UncleSon21/vellatry/internal/domainevents"
 	"github.com/UncleSon21/vellatry/internal/platform/db"
@@ -115,6 +116,9 @@ func (s *Server) onboarding(w http.ResponseWriter, r *http.Request) {
 			if _, err := insertTopic(ctx, tx, orgID, b.ID, t, locationName(2036)); err != nil {
 				return err
 			}
+		}
+		if err := automation.InsertDefaults(ctx, tx, orgID); err != nil {
+			return err
 		}
 		_, err := s.Bus.Emit(ctx, tx, orgID, events.Event{Kind: domainevents.OrgOnboarded, SubjectID: orgID, Actor: sess.UserID})
 		return err

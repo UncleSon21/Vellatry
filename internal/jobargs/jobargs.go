@@ -3,6 +3,8 @@
 // api can import it (internal/archtest enforces that).
 package jobargs
 
+import "github.com/riverqueue/river"
+
 // VisibilityPlanAll fans planning out to every tenant with a brand.
 type VisibilityPlanAll struct{}
 
@@ -103,3 +105,91 @@ type SiteCrawl struct {
 }
 
 func (SiteCrawl) Kind() string { return "site_crawl" }
+
+// WatchEvent runs the watchers that react to one stored event.
+type WatchEvent struct {
+	OrgID   string `json:"org_id"`
+	EventID int64  `json:"event_id"`
+}
+
+func (WatchEvent) Kind() string { return "watch_event" }
+
+// WatchDailyAll fans the week-on-week watchers out to every tenant.
+type WatchDailyAll struct{}
+
+func (WatchDailyAll) Kind() string { return "watch_daily_all" }
+
+// WatchDaily runs one tenant's week-on-week watchers for one day (YYYY-MM-DD).
+type WatchDaily struct {
+	OrgID string `json:"org_id"`
+	Day   string `json:"day"`
+}
+
+func (WatchDaily) Kind() string { return "watch_daily" }
+
+// NotifyDeliver sends one notification to its destinations.
+type NotifyDeliver struct {
+	OrgID          string `json:"org_id"`
+	NotificationID int64  `json:"notification_id"`
+}
+
+func (NotifyDeliver) Kind() string { return "notify_deliver" }
+
+// InsertOpts gives up on a delivery after about two hours of retries; the notification
+// stays visible in the dashboard either way.
+func (NotifyDeliver) InsertOpts() river.InsertOpts { return river.InsertOpts{MaxAttempts: 8} }
+
+// DigestAll fans the weekly digest out to every tenant.
+type DigestAll struct{}
+
+func (DigestAll) Kind() string { return "digest_all" }
+
+// DigestOrg builds and sends one tenant's digest for the week ending the day before
+// Week (a Monday, YYYY-MM-DD).
+type DigestOrg struct {
+	OrgID string `json:"org_id"`
+	Week  string `json:"week"`
+}
+
+func (DigestOrg) Kind() string { return "digest_org" }
+
+// DestinationTest sends a first message to a new destination to prove it works.
+type DestinationTest struct {
+	OrgID         string `json:"org_id"`
+	DestinationID string `json:"destination_id"`
+}
+
+func (DestinationTest) Kind() string { return "destination_test" }
+
+// AsanaAuthorize exchanges a stored Asana authorisation code and lists projects.
+type AsanaAuthorize struct {
+	OrgID string `json:"org_id"`
+}
+
+func (AsanaAuthorize) Kind() string { return "asana_authorize" }
+
+// AsanaRevoke revokes the Asana grant and wipes the stored token.
+type AsanaRevoke struct {
+	OrgID string `json:"org_id"`
+}
+
+func (AsanaRevoke) Kind() string { return "asana_revoke" }
+
+// AsanaCreateTask creates (or finds, or reopens) the Asana task for one fix or blindspot.
+type AsanaCreateTask struct {
+	OrgID     string `json:"org_id"`
+	Source    string `json:"source"` // fix | blindspot
+	SubjectID string `json:"subject_id"`
+}
+
+func (AsanaCreateTask) Kind() string { return "asana_create_task" }
+
+// InsertOpts stops retrying after about two hours; the fix shows the failure.
+func (AsanaCreateTask) InsertOpts() river.InsertOpts { return river.InsertOpts{MaxAttempts: 8} }
+
+// AsanaCloseDone completes the Asana tasks whose fix or blindspot is resolved.
+type AsanaCloseDone struct {
+	OrgID string `json:"org_id"`
+}
+
+func (AsanaCloseDone) Kind() string { return "asana_close_done" }

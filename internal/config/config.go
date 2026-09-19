@@ -41,6 +41,19 @@ type Config struct {
 	AppURL             string // the web app
 	SecretKey          string // base64 32 bytes: openssl rand -base64 32
 
+	// Asana (fixes and blindspots as tasks).
+	AsanaClientID     string
+	AsanaClientSecret string
+	AsanaRedirectURL  string // <api>/oauth/asana/callback
+
+	// Email (alerts, digest, report links, sign-in links) through Postmark.
+	PostmarkToken  string
+	PostmarkStream string
+	EmailFrom      string
+
+	// TimeZone schedules the weekly digest (Monday morning) for customers.
+	TimeZone string
+
 	// BigQuery warehouse for raw Search Console and GA4 facts.
 	BigQueryProject     string
 	BigQueryDataset     string
@@ -53,6 +66,14 @@ type Config struct {
 func (c Config) GoogleConfigured() bool {
 	return c.GoogleClientID != "" && c.GoogleClientSecret != "" && c.GoogleRedirectURL != "" && c.SecretKey != ""
 }
+
+// AsanaConfigured reports whether Asana can be offered.
+func (c Config) AsanaConfigured() bool {
+	return c.AsanaClientID != "" && c.AsanaClientSecret != "" && c.AsanaRedirectURL != "" && c.SecretKey != ""
+}
+
+// EmailConfigured reports whether email can be sent.
+func (c Config) EmailConfigured() bool { return c.PostmarkToken != "" && c.EmailFrom != "" }
 
 // FromEnv reads the configuration. Only DATABASE_URL is required; features whose
 // credentials are missing are disabled by the roles, not guessed.
@@ -76,6 +97,13 @@ func FromEnv() (Config, error) {
 		GoogleRedirectURL:      os.Getenv("GOOGLE_REDIRECT_URL"),
 		AppURL:                 strings.TrimRight(env("APP_URL", "http://localhost:3000"), "/"),
 		SecretKey:              os.Getenv("VELLATRY_SECRET_KEY"),
+		AsanaClientID:          os.Getenv("ASANA_CLIENT_ID"),
+		AsanaClientSecret:      os.Getenv("ASANA_CLIENT_SECRET"),
+		AsanaRedirectURL:       os.Getenv("ASANA_REDIRECT_URL"),
+		PostmarkToken:          os.Getenv("POSTMARK_SERVER_TOKEN"),
+		PostmarkStream:         env("POSTMARK_STREAM", "outbound"),
+		EmailFrom:              os.Getenv("EMAIL_FROM"),
+		TimeZone:               env("VELLATRY_TIME_ZONE", "Australia/Sydney"),
 		BigQueryProject:        os.Getenv("BIGQUERY_PROJECT"),
 		BigQueryDataset:        env("BIGQUERY_DATASET", "vellatry_raw"),
 		BigQueryLocation:       env("BIGQUERY_LOCATION", "australia-southeast1"),

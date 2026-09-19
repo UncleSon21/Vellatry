@@ -17,15 +17,18 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata" // schedules use Australian time zones even where the OS has no zone database
 
 	"cloud.google.com/go/bigquery"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 
 	"github.com/UncleSon21/vellatry/internal/api"
+	"github.com/UncleSon21/vellatry/internal/asanaauth"
 	"github.com/UncleSon21/vellatry/internal/config"
 	"github.com/UncleSon21/vellatry/internal/dataforseo"
 	"github.com/UncleSon21/vellatry/internal/domainevents"
+	"github.com/UncleSon21/vellatry/internal/email"
 	"github.com/UncleSon21/vellatry/internal/googleauth"
 	"github.com/UncleSon21/vellatry/internal/platform/budget"
 	"github.com/UncleSon21/vellatry/internal/platform/db"
@@ -104,15 +107,20 @@ func runAPI(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *slo
 		Pool: pool, Bus: events.NewBus(inserter, domainevents.Subscriptions()...),
 		Verifier: verifier, Hub: hub, Logger: log, AllowedOrigins: cfg.AllowedOrigins, AppURL: cfg.AppURL,
 	}
+	box, err := openBox(cfg, log)
+	if err != nil {
+		return err
+	}
+	server.Box = box
 	if cfg.GoogleConfigured() {
-		box, err := secrets.NewBox(cfg.SecretKey)
-		if err != nil {
-			return err
-		}
-		server.Box = box
 		server.GoogleOAuth = googleauth.Config(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL)
 	} else {
 		log.Warn("Google connections disabled: set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URL and VELLATRY_SECRET_KEY")
+	}
+	if cfg.AsanaConfigured() {
+		server.AsanaOAuth = asanaauth.Config(cfg.AsanaClientID, cfg.AsanaClientSecret, cfg.AsanaRedirectURL)
+	} else {
+		log.Warn("Asana disabled: set ASANA_CLIENT_ID, ASANA_CLIENT_SECRET, ASANA_REDIRECT_URL and VELLATRY_SECRET_KEY")
 	}
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -188,11 +196,34 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 	siteJobs.Register(ws)
 	periodic = append(periodic, siteJobs.PeriodicJobs()...)
 
-	if cfg.GoogleConfigured() {
-		box, err := secrets.NewBox(cfg.SecretKey)
-		if err != nil {
-			return err
+	box, err := openBox(cfg, log)
+	if err != nil {
+		return err
+	}
+	loc, err := time.LoadLocation(cfg.TimeZone)
+	if err != nil {
+		return fmt.Errorf("VELLATRY_TIME_ZONE: %w", err)
+	}
+	auto := &workers.Automation{
+		Pool: pool, Logger: log, Box: box, AppURL: cfg.AppURL, Location: loc,
+		Bus:   events.NewBus(nil, domainevents.Subscriptions()...),
+		Email: openEmail(cfg, log),
+	}
+	auto.Register(ws)
+	periodic = append(periodic, auto.PeriodicJobs()...)
+
+	if cfg.AsanaConfigured() {
+		tasks := &workers.Asana{
+			Pool: pool, Box: box, Logger: log, AppURL: cfg.AppURL,
+			OAuth: asanaauth.Config(cfg.AsanaClientID, cfg.AsanaClientSecret, cfg.AsanaRedirectURL),
+			Bus:   events.NewBus(nil, domainevents.Subscriptions()...),
 		}
+		tasks.Register(ws)
+	} else {
+		log.Warn("Asana disabled: Asana OAuth or VELLATRY_SECRET_KEY not configured")
+	}
+
+	if cfg.GoogleConfigured() {
 		wh, closeWH, err := openWarehouse(ctx, cfg, log)
 		if err != nil {
 			return err
@@ -221,6 +252,30 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 	stopCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	return client.Stop(stopCtx)
+}
+
+// openBox returns the credential box, or nil when VELLATRY_SECRET_KEY is unset (every
+// feature that stores a credential is then disabled).
+func openBox(cfg config.Config, log *slog.Logger) (*secrets.Box, error) {
+	if cfg.SecretKey == "" {
+		log.Warn("VELLATRY_SECRET_KEY not set: Google, Asana and Slack destinations are disabled")
+		return nil, nil
+	}
+	return secrets.NewBox(cfg.SecretKey)
+}
+
+// openEmail returns Postmark when configured. Without it, email is only logged, and only
+// in local development: sign-in links must never land in production logs.
+func openEmail(cfg config.Config, log *slog.Logger) email.Sender {
+	switch {
+	case cfg.EmailConfigured():
+		return &email.Postmark{Token: cfg.PostmarkToken, From: cfg.EmailFrom, Stream: cfg.PostmarkStream}
+	case cfg.DevAuth:
+		log.Warn("POSTMARK_SERVER_TOKEN/EMAIL_FROM not set: email is written to the log instead of sent (development only)")
+		return email.Log{Logger: log}
+	}
+	log.Warn("email disabled: set POSTMARK_SERVER_TOKEN and EMAIL_FROM")
+	return nil
 }
 
 // openWarehouse returns BigQuery when configured. Without it, raw facts are kept in

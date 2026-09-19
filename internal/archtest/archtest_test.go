@@ -45,13 +45,17 @@ var llmSDKs = []string{
 }
 
 // externalClients are packages that call services outside Vellatry. The api role may
-// not depend on any of them. (internal/googleauth only builds URLs and is allowed.)
+// not depend on any of them. (internal/googleauth and internal/asanaauth only build
+// URLs and are allowed.)
 var externalClients = []string{
 	module + "/internal/dataforseo",
 	module + "/internal/platform/gateway",
 	module + "/internal/google",
 	module + "/internal/warehouse",
 	module + "/internal/site", // the crawler fetches customers' sites
+	module + "/internal/slack",
+	module + "/internal/email",
+	module + "/internal/asana",
 	module + "/internal/workers",
 }
 

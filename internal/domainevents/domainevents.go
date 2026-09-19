@@ -42,7 +42,41 @@ const (
 	FindingStatusChanged = "site.finding.status_changed"
 	FixStatusChanged     = "fix.status_changed"
 	FixesLive            = "fix.live" // fixes detected live on the site
+
+	NotificationCreated = "notification.created" // a watcher, the digest or a report raised something
+	DestinationAdded    = "destination.added"
+	DigestSent          = "digest.sent"
+	TaskRequested       = "task.requested" // someone sent a fix or blindspot to Asana
+	TaskCreated         = "task.created"
+	TaskFailed          = "task.failed"
+	TasksCompleted      = "task.completed" // Vellatry closed tasks whose item was resolved
 )
+
+// SiteCrawlCompletedPayload is the payload of SiteCrawlCompleted.
+type SiteCrawlCompletedPayload struct {
+	Pages          int      `json:"pages"`
+	Opened         int      `json:"opened"`
+	Resolved       int      `json:"resolved"`
+	FixesLive      int      `json:"fixes_live"`
+	CriticalOpened []string `json:"critical_opened,omitempty"` // fingerprints, for the critical_finding watcher
+}
+
+// NotificationPayload is the payload of NotificationCreated.
+type NotificationPayload struct {
+	NotificationID int64  `json:"notification_id"`
+	Kind           string `json:"kind"`
+	Severity       string `json:"severity"`
+	Title          string `json:"title"`
+	Delivery       string `json:"delivery"`
+}
+
+// TaskPayload is the payload of the task events.
+type TaskPayload struct {
+	Source    string `json:"source"`
+	SubjectID string `json:"subject_id"`
+	URL       string `json:"url,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
 
 // ConnectionPayload is the payload of connection events.
 type ConnectionPayload struct {
@@ -98,14 +132,30 @@ func Subscriptions() []events.Subscription {
 			Job:   func(s events.Stored) river.JobArgs { return jobargs.SiteCrawl{OrgID: s.OrgID, Trigger: "manual"} },
 		},
 		{
-			Name:  "google-authorize",
+			Name:  "authorize-connection",
 			Kinds: []string{ConnectionAuthorized},
-			Job:   func(s events.Stored) river.JobArgs { return jobargs.GoogleAuthorize{OrgID: s.OrgID} },
+			Job: func(s events.Stored) river.JobArgs {
+				switch connectionKind(s) {
+				case "google":
+					return jobargs.GoogleAuthorize{OrgID: s.OrgID}
+				case "asana":
+					return jobargs.AsanaAuthorize{OrgID: s.OrgID}
+				}
+				return nil
+			},
 		},
 		{
-			Name:  "google-revoke",
+			Name:  "revoke-connection",
 			Kinds: []string{ConnectionRevoked},
-			Job:   func(s events.Stored) river.JobArgs { return jobargs.GoogleRevoke{OrgID: s.OrgID} },
+			Job: func(s events.Stored) river.JobArgs {
+				switch connectionKind(s) {
+				case "google":
+					return jobargs.GoogleRevoke{OrgID: s.OrgID}
+				case "asana":
+					return jobargs.AsanaRevoke{OrgID: s.OrgID}
+				}
+				return nil
+			},
 		},
 		{
 			Name:  "first-sync",
@@ -122,5 +172,66 @@ func Subscriptions() []events.Subscription {
 				return nil
 			},
 		},
+		{
+			Name:  "watch-events",
+			Kinds: []string{SiteCrawlCompleted, ConnectionBroken, BlindspotOpened},
+			Job: func(s events.Stored) river.JobArgs {
+				if s.Kind == BlindspotOpened {
+					var p struct {
+						Confirmed bool `json:"confirmed"`
+					}
+					if json.Unmarshal(s.Payload, &p) != nil || !p.Confirmed {
+						return nil // provisional blindspots change too often to alert on
+					}
+				}
+				if s.Kind == SiteCrawlCompleted {
+					var p SiteCrawlCompletedPayload
+					if json.Unmarshal(s.Payload, &p) != nil || len(p.CriticalOpened) == 0 {
+						return nil
+					}
+				}
+				return jobargs.WatchEvent{OrgID: s.OrgID, EventID: s.ID}
+			},
+		},
+		{
+			Name:  "deliver-notification",
+			Kinds: []string{NotificationCreated},
+			Job: func(s events.Stored) river.JobArgs {
+				var p NotificationPayload
+				if json.Unmarshal(s.Payload, &p) != nil || p.Delivery != "immediate" {
+					return nil // digest items wait for the weekly digest
+				}
+				return jobargs.NotifyDeliver{OrgID: s.OrgID, NotificationID: p.NotificationID}
+			},
+		},
+		{
+			Name:  "test-destination",
+			Kinds: []string{DestinationAdded},
+			Job: func(s events.Stored) river.JobArgs {
+				return jobargs.DestinationTest{OrgID: s.OrgID, DestinationID: s.SubjectID}
+			},
+		},
+		{
+			Name:  "create-task",
+			Kinds: []string{TaskRequested},
+			Job: func(s events.Stored) river.JobArgs {
+				var p TaskPayload
+				if json.Unmarshal(s.Payload, &p) != nil || p.Source == "" {
+					return nil
+				}
+				return jobargs.AsanaCreateTask{OrgID: s.OrgID, Source: p.Source, SubjectID: p.SubjectID}
+			},
+		},
+		{
+			Name:  "close-done-tasks",
+			Kinds: []string{FixesLive, FixStatusChanged, BlindspotResolved, BlindspotStatusChanged},
+			Job:   func(s events.Stored) river.JobArgs { return jobargs.AsanaCloseDone{OrgID: s.OrgID} },
+		},
 	}
+}
+
+func connectionKind(s events.Stored) string {
+	var p ConnectionPayload
+	_ = json.Unmarshal(s.Payload, &p)
+	return p.Kind
 }

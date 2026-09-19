@@ -29,7 +29,13 @@ blindspot into a fix whose outcome is measured.
   that open and resolve themselves, copy-ready fixes (robots.txt lines, llms.txt,
   Organization JSON-LD) that move proposed -> sent -> live when the next crawl confirms
   them, and the API.
-- Next: M4 reports and watchers, M5 keyword research, M6 agent, the dashboard UI.
+- **M4a Automations:** backend done. Slack (incoming webhooks) and email (Postmark)
+  destinations, each tested on creation and marked broken when they stop working;
+  watchers (visibility drop, competitor overtakes, critical site issue, broken
+  connection, confirmed blindspot) evaluated by code with merged repeats and an hourly
+  cap; the weekly digest (no model, sections without data left out); Asana tasks for
+  fixes and blindspots, created on request and closed when Vellatry sees them resolved.
+- Next: M4b CMO reports hub, M5 keyword research, M6 agent, the dashboard UI.
 
 | Spike | Question | State |
 | --- | --- | --- |

@@ -200,8 +200,13 @@ func (w *siteCrawlWorker) Work(ctx context.Context, job *river.Job[jobargs.SiteC
 				return err
 			}
 		}
-		_, err = s.Bus.Emit(ctx, tx, org, events.Event{Kind: domainevents.SiteCrawlCompleted, SubjectID: itoa64(crawlID), Actor: "crawler",
-			Payload: map[string]any{"pages": len(res.Pages), "opened": len(changes.Opened), "resolved": len(changes.Resolved), "fixes_live": live}})
+		done := domainevents.SiteCrawlCompletedPayload{Pages: len(res.Pages), Opened: len(changes.Opened), Resolved: len(changes.Resolved), FixesLive: live}
+		for _, f := range changes.Opened {
+			if f.Severity == site.Critical {
+				done.CriticalOpened = append(done.CriticalOpened, f.Fingerprint)
+			}
+		}
+		_, err = s.Bus.Emit(ctx, tx, org, events.Event{Kind: domainevents.SiteCrawlCompleted, SubjectID: itoa64(crawlID), Actor: "crawler", Payload: done})
 		return err
 	})
 }

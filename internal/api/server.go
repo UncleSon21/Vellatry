@@ -28,17 +28,19 @@ type Server struct {
 	Logger         *slog.Logger
 	AllowedOrigins []string
 
-	// Google connections; nil when not configured.
+	// Connections; nil when not configured. Box seals credentials and signs OAuth state.
 	GoogleOAuth *oauth2.Config
+	AsanaOAuth  *oauth2.Config
 	Box         *secrets.Box
-	AppURL      string // the web app, for redirects back from Google
+	AppURL      string // the web app, for redirects back from providers
 }
 
 // Handler returns the HTTP routes.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.healthz)
-	mux.HandleFunc("GET /oauth/google/callback", s.googleCallback) // authenticated by its signed state
+	mux.HandleFunc("GET /oauth/google/callback", s.oauthCallback("google")) // authenticated by its signed state
+	mux.HandleFunc("GET /oauth/asana/callback", s.oauthCallback("asana"))
 
 	authed := http.NewServeMux()
 	authed.HandleFunc("GET /v1/me", s.me)
@@ -69,8 +71,11 @@ func (s *Server) Handler() http.Handler {
 	authed.HandleFunc("GET /v1/visibility/sources", s.sources)
 
 	authed.HandleFunc("GET /v1/connections", s.listConnections)
-	authed.HandleFunc("POST /v1/connections/google/start", s.startGoogle)
+	authed.HandleFunc("POST /v1/connections/google/start", s.startOAuth("google"))
 	authed.HandleFunc("DELETE /v1/connections/google", s.disconnectGoogle)
+	authed.HandleFunc("POST /v1/connections/asana/start", s.startOAuth("asana"))
+	authed.HandleFunc("PUT /v1/connections/asana/project", s.chooseAsanaProject)
+	authed.HandleFunc("DELETE /v1/connections/asana", s.disconnectAsana)
 	authed.HandleFunc("PUT /v1/connections/{kind}", s.chooseProperty)
 
 	authed.HandleFunc("GET /v1/search/overview", s.searchOverview)
@@ -86,6 +91,18 @@ func (s *Server) Handler() http.Handler {
 	authed.HandleFunc("GET /v1/site/pages", s.sitePages)
 	authed.HandleFunc("GET /v1/fixes", s.listFixes)
 	authed.HandleFunc("PATCH /v1/fixes/{id}", s.patchFix)
+	authed.HandleFunc("POST /v1/fixes/{id}/asana", s.sendToAsana("fix"))
+	authed.HandleFunc("POST /v1/visibility/blindspots/{id}/asana", s.sendToAsana("blindspot"))
+
+	authed.HandleFunc("GET /v1/destinations", s.listDestinations)
+	authed.HandleFunc("POST /v1/destinations", s.addDestination)
+	authed.HandleFunc("PATCH /v1/destinations/{id}", s.patchDestination)
+	authed.HandleFunc("DELETE /v1/destinations/{id}", s.deleteDestination)
+	authed.HandleFunc("GET /v1/watchers", s.listWatchers)
+	authed.HandleFunc("POST /v1/watchers", s.addWatcher)
+	authed.HandleFunc("PATCH /v1/watchers/{id}", s.patchWatcher)
+	authed.HandleFunc("DELETE /v1/watchers/{id}", s.deleteWatcher)
+	authed.HandleFunc("GET /v1/notifications", s.listNotifications)
 
 	authed.HandleFunc("GET /v1/events", s.listEvents)
 	authed.HandleFunc("GET /v1/events/stream", s.streamEvents)
