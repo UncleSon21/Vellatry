@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"cloud.google.com/go/bigquery"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/UncleSon21/vellatry/internal/config"
 	"github.com/UncleSon21/vellatry/internal/dataforseo"
 	"github.com/UncleSon21/vellatry/internal/domainevents"
+	"github.com/UncleSon21/vellatry/internal/googleauth"
 	"github.com/UncleSon21/vellatry/internal/platform/budget"
 	"github.com/UncleSon21/vellatry/internal/platform/db"
 	"github.com/UncleSon21/vellatry/internal/platform/events"
@@ -33,7 +35,9 @@ import (
 	"github.com/UncleSon21/vellatry/internal/platform/gateway/pgcache"
 	"github.com/UncleSon21/vellatry/internal/platform/jobs"
 	"github.com/UncleSon21/vellatry/internal/platform/metering"
+	"github.com/UncleSon21/vellatry/internal/platform/secrets"
 	"github.com/UncleSon21/vellatry/internal/visibility/judge"
+	"github.com/UncleSon21/vellatry/internal/warehouse"
 	"github.com/UncleSon21/vellatry/internal/workers"
 )
 
@@ -95,12 +99,23 @@ func runAPI(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *slo
 	hub := &api.Hub{Pool: pool, Logger: log}
 	go hub.Run(ctx)
 
+	server := &api.Server{
+		Pool: pool, Bus: events.NewBus(inserter, domainevents.Subscriptions()...),
+		Verifier: verifier, Hub: hub, Logger: log, AllowedOrigins: cfg.AllowedOrigins, AppURL: cfg.AppURL,
+	}
+	if cfg.GoogleConfigured() {
+		box, err := secrets.NewBox(cfg.SecretKey)
+		if err != nil {
+			return err
+		}
+		server.Box = box
+		server.GoogleOAuth = googleauth.Config(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL)
+	} else {
+		log.Warn("Google connections disabled: set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URL and VELLATRY_SECRET_KEY")
+	}
 	srv := &http.Server{
-		Addr: ":" + cfg.Port,
-		Handler: (&api.Server{
-			Pool: pool, Bus: events.NewBus(inserter, domainevents.Subscriptions()...),
-			Verifier: verifier, Hub: hub, Logger: log, AllowedOrigins: cfg.AllowedOrigins,
-		}).Handler(),
+		Addr:              ":" + cfg.Port,
+		Handler:           server.Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 		WriteTimeout:      30 * time.Second, // the event stream lifts this for itself
 		IdleTimeout:       120 * time.Second,
@@ -167,6 +182,27 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 	vis.Register(ws)
 	periodic = append(periodic, vis.PeriodicJobs()...)
 
+	if cfg.GoogleConfigured() {
+		box, err := secrets.NewBox(cfg.SecretKey)
+		if err != nil {
+			return err
+		}
+		wh, closeWH, err := openWarehouse(ctx, cfg, log)
+		if err != nil {
+			return err
+		}
+		defer closeWH()
+		sync := &workers.Search{
+			Pool: pool, Box: box, Warehouse: wh, Logger: log,
+			OAuth: googleauth.Config(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL),
+			Bus:   events.NewBus(nil, domainevents.Subscriptions()...),
+		}
+		sync.Register(ws)
+		periodic = append(periodic, sync.PeriodicJobs()...)
+	} else {
+		log.Warn("Google syncs disabled: Google OAuth or VELLATRY_SECRET_KEY not configured")
+	}
+
 	client, err := jobs.NewWorker(pool, ws, jobs.Options{PeriodicJobs: periodic, Logger: log})
 	if err != nil {
 		return err
@@ -174,9 +210,32 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 	if err := client.Start(ctx); err != nil {
 		return err
 	}
-	log.Info("worker started", "visibility", vis.Answers != nil, "judge", vis.Judge != nil)
+	log.Info("worker started", "visibility", vis.Answers != nil, "judge", vis.Judge != nil, "google", cfg.GoogleConfigured())
 	<-ctx.Done()
 	stopCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	return client.Stop(stopCtx)
+}
+
+// openWarehouse returns BigQuery when configured. Without it, raw facts are kept in
+// memory, which is only acceptable for local development.
+func openWarehouse(ctx context.Context, cfg config.Config, log *slog.Logger) (warehouse.Warehouse, func(), error) {
+	if cfg.BigQueryProject == "" {
+		log.Warn("BIGQUERY_PROJECT not set: raw Search Console and GA4 facts are kept IN MEMORY and lost on restart. Local development only.")
+		return warehouse.NewMemory(), func() {}, nil
+	}
+	client, err := bigquery.NewClient(ctx, cfg.BigQueryProject)
+	if err != nil {
+		return nil, nil, err
+	}
+	client.Location = cfg.BigQueryLocation
+	bq := &warehouse.BigQuery{
+		Client: client, Dataset: cfg.BigQueryDataset, MaxBytesBilled: cfg.BigQueryMaxBytes,
+		Retention: time.Duration(cfg.SearchRetentionDays) * 24 * time.Hour,
+	}
+	if err := bq.EnsureDataset(ctx, cfg.BigQueryLocation); err != nil {
+		client.Close()
+		return nil, nil, err
+	}
+	return bq, func() { client.Close() }, nil
 }

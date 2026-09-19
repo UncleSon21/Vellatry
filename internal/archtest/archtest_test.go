@@ -44,10 +44,14 @@ var llmSDKs = []string{
 	"github.com/tmc/langchaingo",
 }
 
-// externalClients are packages that call services outside Vellatry.
+// externalClients are packages that call services outside Vellatry. The api role may
+// not depend on any of them. (internal/googleauth only builds URLs and is allowed.)
 var externalClients = []string{
 	module + "/internal/dataforseo",
 	module + "/internal/platform/gateway",
+	module + "/internal/google",
+	module + "/internal/warehouse",
+	module + "/internal/workers",
 }
 
 var selectStar = regexp.MustCompile(`(?i)\bselect\s+\*\s+from\b`)

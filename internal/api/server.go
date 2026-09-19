@@ -13,8 +13,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/oauth2"
 
 	"github.com/UncleSon21/vellatry/internal/platform/events"
+	"github.com/UncleSon21/vellatry/internal/platform/secrets"
 )
 
 // Server holds the api role's dependencies.
@@ -25,12 +27,18 @@ type Server struct {
 	Hub            *Hub
 	Logger         *slog.Logger
 	AllowedOrigins []string
+
+	// Google connections; nil when not configured.
+	GoogleOAuth *oauth2.Config
+	Box         *secrets.Box
+	AppURL      string // the web app, for redirects back from Google
 }
 
 // Handler returns the HTTP routes.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.healthz)
+	mux.HandleFunc("GET /oauth/google/callback", s.googleCallback) // authenticated by its signed state
 
 	authed := http.NewServeMux()
 	authed.HandleFunc("GET /v1/me", s.me)
@@ -59,6 +67,17 @@ func (s *Server) Handler() http.Handler {
 	authed.HandleFunc("GET /v1/visibility/blindspots", s.blindspots)
 	authed.HandleFunc("PATCH /v1/visibility/blindspots/{id}", s.patchBlindspot)
 	authed.HandleFunc("GET /v1/visibility/sources", s.sources)
+
+	authed.HandleFunc("GET /v1/connections", s.listConnections)
+	authed.HandleFunc("POST /v1/connections/google/start", s.startGoogle)
+	authed.HandleFunc("DELETE /v1/connections/google", s.disconnectGoogle)
+	authed.HandleFunc("PUT /v1/connections/{kind}", s.chooseProperty)
+
+	authed.HandleFunc("GET /v1/search/overview", s.searchOverview)
+	authed.HandleFunc("GET /v1/search/queries", s.searchTop("query"))
+	authed.HandleFunc("GET /v1/search/pages", s.searchTop("page"))
+	authed.HandleFunc("GET /v1/analytics/channels", s.channels("channel"))
+	authed.HandleFunc("GET /v1/analytics/ai-referrals", s.channels("assistant"))
 
 	authed.HandleFunc("GET /v1/events", s.listEvents)
 	authed.HandleFunc("GET /v1/events/stream", s.streamEvents)

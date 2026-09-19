@@ -32,3 +32,8 @@ adding a new line that supersedes the old one, not by editing history.
 | 25 | 2026-09-20 | Job arguments (`internal/jobargs`) and event subscriptions (`internal/domainevents`) live in dependency-free packages so the api role can enqueue work without importing external clients. |
 | 26 | 2026-09-20 | Live dashboard updates: an `events` insert trigger `pg_notify`s ids only; one LISTEN connection per api process fans them out over SSE, filtered by org. |
 | 27 | 2026-09-20 | Dismissed blindspots stay dismissed through later answers: the customer's decision wins. |
+| 28 | 2026-09-20 | Raw Search Console and GA4 facts: one BigQuery table per tenant and fact type, partitioned by day (partition expiry = retention), loaded by replacing whole day partitions. Postgres gets exact daily totals and bounded monthly top-N lists only. |
+| 29 | 2026-09-20 | Google OAuth: the api only builds the consent URL and stores the sealed one-time code; the worker exchanges it, saves the sealed refresh token first, then lists properties. The api never calls Google. |
+| 30 | 2026-09-20 | Credentials are sealed with AES-256-GCM bound to the org id (`internal/platform/secrets`); a ciphertext copied to another tenant's row does not open. |
+| 31 | 2026-09-20 | A dead Google grant marks the connection broken (shown in the dashboard with a fix) and stops retrying; transient errors retry. Revoking wipes the token after revoking it at Google; synced history is kept. |
+| 32 | 2026-09-20 | AI referral traffic is GA4 sessions whose source is an AI assistant (ChatGPT, Perplexity, Gemini, Copilot, Claude...), rolled up per day. |

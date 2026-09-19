@@ -19,7 +19,11 @@ blindspot into a fix whose outcome is measured.
   collection, deterministic detection and gap matrix, blindspots, the judge, rollups,
   and the API for Performance, Blindspots, Sources and the live event stream.
   Needs DataForSEO credentials to request real answers.
-- Next: M2 Search Console + GA4, M3 site crawl and fixes, M4 reports, the dashboard UI.
+- **M2 Search Console + GA4:** backend done. Google OAuth (exchange in the worker),
+  sealed tokens, week-sized backfill jobs, BigQuery day-partition loads, Postgres
+  rollups (daily totals, monthly top queries/pages/landing pages, channels, AI
+  referrals), reconciliation, broken-connection handling, and the API.
+- Next: M3 site crawl and fixes, M4 reports, the dashboard UI.
 
 | Spike | Question | State |
 | --- | --- | --- |

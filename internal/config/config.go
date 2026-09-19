@@ -33,6 +33,25 @@ type Config struct {
 	LLMDailyUSDTenant float64
 	// AllowJudge permits the per-item judge purpose (design-partner phase only).
 	AllowJudge bool
+
+	// Google connections (Search Console, GA4) and credential encryption.
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURL  string // <api>/oauth/google/callback
+	AppURL             string // the web app
+	SecretKey          string // base64 32 bytes: openssl rand -base64 32
+
+	// BigQuery warehouse for raw Search Console and GA4 facts.
+	BigQueryProject     string
+	BigQueryDataset     string
+	BigQueryLocation    string
+	BigQueryMaxBytes    int64
+	SearchRetentionDays int
+}
+
+// GoogleConfigured reports whether Google connections can be offered.
+func (c Config) GoogleConfigured() bool {
+	return c.GoogleClientID != "" && c.GoogleClientSecret != "" && c.GoogleRedirectURL != "" && c.SecretKey != ""
 }
 
 // FromEnv reads the configuration. Only DATABASE_URL is required; features whose
@@ -52,8 +71,26 @@ func FromEnv() (Config, error) {
 		CheapModel:             env("VELLATRY_CHEAP_MODEL", "claude-haiku-4-5"),
 		StrongModel:            env("VELLATRY_STRONG_MODEL", "claude-opus-5"),
 		AllowJudge:             os.Getenv("VELLATRY_ALLOW_JUDGE") == "1",
+		GoogleClientID:         os.Getenv("GOOGLE_CLIENT_ID"),
+		GoogleClientSecret:     os.Getenv("GOOGLE_CLIENT_SECRET"),
+		GoogleRedirectURL:      os.Getenv("GOOGLE_REDIRECT_URL"),
+		AppURL:                 strings.TrimRight(env("APP_URL", "http://localhost:3000"), "/"),
+		SecretKey:              os.Getenv("VELLATRY_SECRET_KEY"),
+		BigQueryProject:        os.Getenv("BIGQUERY_PROJECT"),
+		BigQueryDataset:        env("BIGQUERY_DATASET", "vellatry_raw"),
+		BigQueryLocation:       env("BIGQUERY_LOCATION", "australia-southeast1"),
 	}
 	var err error
+	maxBytes, err := number("BIGQUERY_MAX_BYTES", 1<<30)
+	if err != nil {
+		return c, err
+	}
+	c.BigQueryMaxBytes = int64(maxBytes)
+	retention, err := number("SEARCH_RETENTION_DAYS", 490)
+	if err != nil {
+		return c, err
+	}
+	c.SearchRetentionDays = int(retention)
 	if c.DataForSEODailyUSD, err = number("DATAFORSEO_DAILY_USD", 5); err != nil {
 		return c, err
 	}

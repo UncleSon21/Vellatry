@@ -25,7 +25,22 @@ const (
 	BlindspotStatusChanged = "visibility.blindspot.status_changed"
 	CheckRequested         = "visibility.check.requested"
 	CheckSkipped           = "visibility.check.skipped"
+
+	ConnectionAuthorized      = "connection.authorized"       // a Google consent returned a code
+	ConnectionPropertiesReady = "connection.properties_ready" // properties listed; the user can pick one
+	ConnectionConnected       = "connection.connected"        // a property was chosen; payload {kind}
+	ConnectionBroken          = "connection.broken"           // shown openly in the dashboard with a fix
+	ConnectionRevoked         = "connection.revoked"
+	SearchSynced              = "search.synced"
+	AnalyticsSynced           = "analytics.synced"
+	ReconciliationFailed      = "search.reconciliation_failed"
 )
+
+// ConnectionPayload is the payload of connection events.
+type ConnectionPayload struct {
+	Kind   string `json:"kind"`
+	Detail string `json:"detail,omitempty"`
+}
 
 // AnswerCollectedPayload is the payload of AnswerCollected.
 type AnswerCollectedPayload struct {
@@ -62,6 +77,31 @@ func Subscriptions() []events.Subscription {
 			Kinds: []string{CheckRequested},
 			Job: func(s events.Stored) river.JobArgs {
 				return jobargs.VisibilityCheckNow{OrgID: s.OrgID, PromptID: s.SubjectID}
+			},
+		},
+		{
+			Name:  "google-authorize",
+			Kinds: []string{ConnectionAuthorized},
+			Job:   func(s events.Stored) river.JobArgs { return jobargs.GoogleAuthorize{OrgID: s.OrgID} },
+		},
+		{
+			Name:  "google-revoke",
+			Kinds: []string{ConnectionRevoked},
+			Job:   func(s events.Stored) river.JobArgs { return jobargs.GoogleRevoke{OrgID: s.OrgID} },
+		},
+		{
+			Name:  "first-sync",
+			Kinds: []string{ConnectionConnected},
+			Job: func(s events.Stored) river.JobArgs {
+				var p ConnectionPayload
+				_ = json.Unmarshal(s.Payload, &p)
+				switch p.Kind {
+				case "search_console":
+					return jobargs.SearchSyncOrg{OrgID: s.OrgID}
+				case "ga4":
+					return jobargs.AnalyticsSyncOrg{OrgID: s.OrgID}
+				}
+				return nil
 			},
 		},
 	}
