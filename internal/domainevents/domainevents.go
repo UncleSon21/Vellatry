@@ -50,7 +50,24 @@ const (
 	TaskCreated         = "task.created"
 	TaskFailed          = "task.failed"
 	TasksCompleted      = "task.completed" // Vellatry closed tasks whose item was resolved
+
+	ReportDraftRequested = "report.draft_requested"
+	ReportDrafted        = "report.drafted"
+	ReportPublished      = "report.published"
+	ReportWithdrawn      = "report.withdrawn"
+	HubLoginRequested    = "hub.login_requested"
+	HubSignedIn          = "hub.signed_in"
 )
+
+// ReportPayload is the payload of the report events.
+type ReportPayload struct {
+	ReportID string `json:"report_id"`
+	SeriesID string `json:"series_id,omitempty"`
+	Start    string `json:"start,omitempty"`
+	End      string `json:"end,omitempty"`
+	Version  int    `json:"version,omitempty"`
+	Notify   bool   `json:"notify,omitempty"` // email the recipients
+}
 
 // SiteCrawlCompletedPayload is the payload of SiteCrawlCompleted.
 type SiteCrawlCompletedPayload struct {
@@ -220,6 +237,52 @@ func Subscriptions() []events.Subscription {
 					return nil
 				}
 				return jobargs.AsanaCreateTask{OrgID: s.OrgID, Source: p.Source, SubjectID: p.SubjectID}
+			},
+		},
+		{
+			Name:  "draft-report",
+			Kinds: []string{ReportDraftRequested},
+			Job: func(s events.Stored) river.JobArgs {
+				var p ReportPayload
+				if json.Unmarshal(s.Payload, &p) != nil || p.SeriesID == "" {
+					return nil
+				}
+				return jobargs.ReportDraft{OrgID: s.OrgID, SeriesID: p.SeriesID, Start: p.Start, End: p.End, Refresh: true}
+			},
+		},
+		{
+			Name:  "render-report-pdf",
+			Kinds: []string{ReportPublished},
+			Job: func(s events.Stored) river.JobArgs {
+				var p ReportPayload
+				if json.Unmarshal(s.Payload, &p) != nil || p.ReportID == "" {
+					return nil
+				}
+				return jobargs.ReportPDF{OrgID: s.OrgID, ReportID: p.ReportID, Version: p.Version}
+			},
+		},
+		{
+			Name:  "announce-report",
+			Kinds: []string{ReportPublished},
+			Job: func(s events.Stored) river.JobArgs {
+				var p ReportPayload
+				if json.Unmarshal(s.Payload, &p) != nil || p.ReportID == "" {
+					return nil
+				}
+				return jobargs.ReportNotify{OrgID: s.OrgID, ReportID: p.ReportID, Version: p.Version, Email: p.Notify}
+			},
+		},
+		{
+			Name:  "hub-sign-in-link",
+			Kinds: []string{HubLoginRequested},
+			Job: func(s events.Stored) river.JobArgs {
+				var p struct {
+					Email string `json:"email"`
+				}
+				if json.Unmarshal(s.Payload, &p) != nil || p.Email == "" {
+					return nil
+				}
+				return jobargs.HubLoginEmail{OrgID: s.OrgID, Email: p.Email}
 			},
 		},
 		{

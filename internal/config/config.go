@@ -54,6 +54,11 @@ type Config struct {
 	// TimeZone schedules the weekly digest (Monday morning) for customers.
 	TimeZone string
 
+	// Reports hub: its public base URL (the api's, or a domain pointing at it) and the
+	// Gotenberg server that renders PDFs.
+	HubURL       string
+	GotenbergURL string
+
 	// BigQuery warehouse for raw Search Console and GA4 facts.
 	BigQueryProject     string
 	BigQueryDataset     string
@@ -104,6 +109,8 @@ func FromEnv() (Config, error) {
 		PostmarkStream:         env("POSTMARK_STREAM", "outbound"),
 		EmailFrom:              os.Getenv("EMAIL_FROM"),
 		TimeZone:               env("VELLATRY_TIME_ZONE", "Australia/Sydney"),
+		HubURL:                 strings.TrimRight(env("HUB_URL", "http://localhost:8080"), "/"),
+		GotenbergURL:           os.Getenv("GOTENBERG_URL"),
 		BigQueryProject:        os.Getenv("BIGQUERY_PROJECT"),
 		BigQueryDataset:        env("BIGQUERY_DATASET", "vellatry_raw"),
 		BigQueryLocation:       env("BIGQUERY_LOCATION", "australia-southeast1"),

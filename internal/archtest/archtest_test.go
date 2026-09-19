@@ -56,6 +56,7 @@ var externalClients = []string{
 	module + "/internal/slack",
 	module + "/internal/email",
 	module + "/internal/asana",
+	module + "/internal/pdf",
 	module + "/internal/workers",
 }
 

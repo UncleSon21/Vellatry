@@ -36,6 +36,11 @@ Key decisions in short form: `docs/decisions.md`.
   (billing, auth, 40x, parse failures) fail visibly; billing/auth trips a global halt.
 - **Absence rule.** Dashboard shows missing or broken connections with a fix action.
   The exported CMO report omits missing sections. No data means no report.
+  (`reports.Build` records why a section is missing in `Snapshot.Omitted`, which only
+  the team preview renders.)
+- **Report figures.** A summary or note may only repeat figures the report shows
+  (`reports.Figures` / `reports.Unverified`). Model-suggested paragraphs that fail are
+  dropped; the team's own words are flagged and need an explicit confirmation.
 - **Secrets** come from environment variables. Never commit `.env`.
 - **Customer-supplied URLs.** Anything we fetch because a customer typed it (their
   domain, a page URL) goes through `site.PublicOnlyClient`, which refuses private,

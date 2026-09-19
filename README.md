@@ -35,7 +35,16 @@ blindspot into a fix whose outcome is measured.
   connection, confirmed blindspot) evaluated by code with merged repeats and an hourly
   cap; the weekly digest (no model, sections without data left out); Asana tasks for
   fixes and blindspots, created on request and closed when Vellatry sees them resolved.
-- Next: M4b CMO reports hub, M5 keyword research, M6 agent, the dashboard UI.
+- **M4b Reports hub:** backend done. Report series (calendar month, Australian FY
+  quarter, financial year, custom) drafted automatically once the period's data has
+  settled; frozen snapshots; sections with no data left out of the report (the team
+  sees why); an optional model-suggested summary that keeps only paragraphs whose
+  figures appear in the report; a figure check on the team's own words before
+  publishing; immutable versions; one HTML template for the web view and the PDF
+  (Gotenberg); a private hub for the CMO with emailed one-time sign-in links limited
+  to the company's domains, every view logged; recipients get a link, never an
+  attachment.
+- Next: M5 keyword research, M6 agent, the dashboard UI.
 
 | Spike | Question | State |
 | --- | --- | --- |

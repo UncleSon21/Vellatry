@@ -193,3 +193,55 @@ type AsanaCloseDone struct {
 }
 
 func (AsanaCloseDone) Kind() string { return "asana_close_done" }
+
+// ReportScheduleAll drafts every series whose latest period is complete and due.
+type ReportScheduleAll struct{}
+
+func (ReportScheduleAll) Kind() string { return "report_schedule_all" }
+
+// ReportDraft builds (or, with Refresh, rebuilds) one report's draft.
+type ReportDraft struct {
+	OrgID    string `json:"org_id"`
+	SeriesID string `json:"series_id"`
+	Start    string `json:"start"` // YYYY-MM-DD
+	End      string `json:"end"`
+	Refresh  bool   `json:"refresh"`
+}
+
+func (ReportDraft) Kind() string { return "report_draft" }
+
+// ReportPDF renders one published version as a PDF.
+type ReportPDF struct {
+	OrgID    string `json:"org_id"`
+	ReportID string `json:"report_id"`
+	Version  int    `json:"version"`
+}
+
+func (ReportPDF) Kind() string { return "report_pdf" }
+
+// InsertOpts stops retrying a PDF after about an hour; the web view is unaffected.
+func (ReportPDF) InsertOpts() river.InsertOpts { return river.InsertOpts{MaxAttempts: 6} }
+
+// ReportNotify tells the team and the recipients that a version was published.
+type ReportNotify struct {
+	OrgID    string `json:"org_id"`
+	ReportID string `json:"report_id"`
+	Version  int    `json:"version"`
+	Email    bool   `json:"email"` // email the series' recipients
+}
+
+func (ReportNotify) Kind() string { return "report_notify" }
+
+// InsertOpts: see NotifyDeliver.
+func (ReportNotify) InsertOpts() river.InsertOpts { return river.InsertOpts{MaxAttempts: 8} }
+
+// HubLoginEmail emails a sign-in link to the reports hub.
+type HubLoginEmail struct {
+	OrgID string `json:"org_id"`
+	Email string `json:"email"`
+}
+
+func (HubLoginEmail) Kind() string { return "hub_login_email" }
+
+// InsertOpts: a sign-in link is only useful for minutes.
+func (HubLoginEmail) InsertOpts() river.InsertOpts { return river.InsertOpts{MaxAttempts: 3} }

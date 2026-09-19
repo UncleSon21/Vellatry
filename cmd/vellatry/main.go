@@ -30,6 +30,7 @@ import (
 	"github.com/UncleSon21/vellatry/internal/domainevents"
 	"github.com/UncleSon21/vellatry/internal/email"
 	"github.com/UncleSon21/vellatry/internal/googleauth"
+	"github.com/UncleSon21/vellatry/internal/pdf"
 	"github.com/UncleSon21/vellatry/internal/platform/budget"
 	"github.com/UncleSon21/vellatry/internal/platform/db"
 	"github.com/UncleSon21/vellatry/internal/platform/events"
@@ -105,7 +106,7 @@ func runAPI(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *slo
 
 	server := &api.Server{
 		Pool: pool, Bus: events.NewBus(inserter, domainevents.Subscriptions()...),
-		Verifier: verifier, Hub: hub, Logger: log, AllowedOrigins: cfg.AllowedOrigins, AppURL: cfg.AppURL,
+		Verifier: verifier, Hub: hub, Logger: log, AllowedOrigins: cfg.AllowedOrigins, AppURL: cfg.AppURL, HubURL: cfg.HubURL,
 	}
 	box, err := openBox(cfg, log)
 	if err != nil {
@@ -165,6 +166,7 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 		log.Warn("DATAFORSEO_LOGIN/PASSWORD not set: the Visibility engine will not request answers")
 	}
 
+	var drafter workers.Completer // the report summary suggestion; nil without an API key
 	if cfg.AnthropicAPIKey != "" {
 		var allow []string
 		if cfg.AllowJudge {
@@ -182,6 +184,7 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 		if err != nil {
 			return err
 		}
+		drafter = gw
 		if cfg.AllowJudge {
 			vis.Judge = gw
 		} else {
@@ -211,6 +214,18 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 	}
 	auto.Register(ws)
 	periodic = append(periodic, auto.PeriodicJobs()...)
+
+	reportJobs := &workers.Reports{
+		Pool: pool, Logger: log, Notify: auto, Email: auto.Email, Drafter: drafter, HubURL: cfg.HubURL, Location: loc,
+		Bus: events.NewBus(nil, domainevents.Subscriptions()...),
+	}
+	if cfg.GotenbergURL != "" {
+		reportJobs.PDF = pdf.Gotenberg{URL: cfg.GotenbergURL}
+	} else {
+		log.Warn("GOTENBERG_URL not set: published reports have no PDF (the web view is unaffected)")
+	}
+	reportJobs.Register(ws)
+	periodic = append(periodic, reportJobs.PeriodicJobs()...)
 
 	if cfg.AsanaConfigured() {
 		tasks := &workers.Asana{

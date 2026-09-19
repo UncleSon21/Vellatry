@@ -33,6 +33,7 @@ type Server struct {
 	AsanaOAuth  *oauth2.Config
 	Box         *secrets.Box
 	AppURL      string // the web app, for redirects back from providers
+	HubURL      string // the reports hub's public base URL
 }
 
 // Handler returns the HTTP routes.
@@ -41,6 +42,18 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /healthz", s.healthz)
 	mux.HandleFunc("GET /oauth/google/callback", s.oauthCallback("google")) // authenticated by its signed state
 	mux.HandleFunc("GET /oauth/asana/callback", s.oauthCallback("asana"))
+
+	// The CMO reports hub: public pages, opened by an emailed sign-in link.
+	hub := func(fn func(http.ResponseWriter, *http.Request, hubCtx)) http.Handler {
+		return hubHeaders(s.withHub(fn))
+	}
+	mux.Handle("GET /hub/{slug}", hub(s.hubHome))
+	mux.Handle("POST /hub/{slug}/login", hub(s.hubLogin))
+	mux.Handle("GET /hub/{slug}/auth", hub(s.hubAuthPage))
+	mux.Handle("POST /hub/{slug}/auth", hub(s.hubAuth))
+	mux.Handle("POST /hub/{slug}/logout", hub(s.hubLogout))
+	mux.Handle("GET /hub/{slug}/reports/{id}", hub(s.hubReport))
+	mux.Handle("GET /hub/{slug}/reports/{id}/pdf", hub(s.hubPDF))
 
 	authed := http.NewServeMux()
 	authed.HandleFunc("GET /v1/me", s.me)
@@ -103,6 +116,22 @@ func (s *Server) Handler() http.Handler {
 	authed.HandleFunc("PATCH /v1/watchers/{id}", s.patchWatcher)
 	authed.HandleFunc("DELETE /v1/watchers/{id}", s.deleteWatcher)
 	authed.HandleFunc("GET /v1/notifications", s.listNotifications)
+
+	authed.HandleFunc("GET /v1/report-series", s.listSeries)
+	authed.HandleFunc("POST /v1/report-series", s.addSeries)
+	authed.HandleFunc("PATCH /v1/report-series/{id}", s.patchSeries)
+	authed.HandleFunc("POST /v1/report-series/{id}/drafts", s.requestDraft)
+	authed.HandleFunc("GET /v1/reports", s.listReports)
+	authed.HandleFunc("GET /v1/reports/{id}", s.getReport)
+	authed.HandleFunc("GET /v1/reports/{id}/preview", s.previewReport)
+	authed.HandleFunc("PATCH /v1/reports/{id}", s.patchReport)
+	authed.HandleFunc("DELETE /v1/reports/{id}", s.deleteDraft)
+	authed.HandleFunc("POST /v1/reports/{id}/publish", s.publishReport)
+	authed.HandleFunc("POST /v1/reports/{id}/withdraw", s.withdrawReport)
+	authed.HandleFunc("GET /v1/reports/{id}/views", s.reportViews)
+	authed.HandleFunc("GET /v1/hub", s.getHub)
+	authed.HandleFunc("PATCH /v1/hub", s.patchHub)
+	authed.HandleFunc("POST /v1/hub/rotate", s.rotateHub)
 
 	authed.HandleFunc("GET /v1/events", s.listEvents)
 	authed.HandleFunc("GET /v1/events/stream", s.streamEvents)
