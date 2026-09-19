@@ -51,6 +51,7 @@ var externalClients = []string{
 	module + "/internal/platform/gateway",
 	module + "/internal/google",
 	module + "/internal/warehouse",
+	module + "/internal/site", // the crawler fetches customers' sites
 	module + "/internal/workers",
 }
 

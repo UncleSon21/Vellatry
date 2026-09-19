@@ -23,7 +23,13 @@ blindspot into a fix whose outcome is measured.
   sealed tokens, week-sized backfill jobs, BigQuery day-partition loads, Postgres
   rollups (daily totals, monthly top queries/pages/landing pages, channels, AI
   referrals), reconciliation, broken-connection handling, and the API.
-- Next: M3 site crawl and fixes, M4 reports, the dashboard UI.
+- **M3 Site and Fixes:** backend done. Weekly and on-demand crawls (robots.txt obeyed,
+  sitemaps and sitemap indexes, paced, capped at 300 pages, public addresses only),
+  AI-bot access and llms.txt checks, on-page rules with stable fingerprints, findings
+  that open and resolve themselves, copy-ready fixes (robots.txt lines, llms.txt,
+  Organization JSON-LD) that move proposed -> sent -> live when the next crawl confirms
+  them, and the API.
+- Next: M4 reports and watchers, M5 keyword research, M6 agent, the dashboard UI.
 
 | Spike | Question | State |
 | --- | --- | --- |
@@ -36,7 +42,7 @@ blindspot into a fix whose outcome is measured.
 
 ```
 cmd/vellatry/   one binary: migrate | api | worker
-internal/       production packages (platform/, api/, visibility/, dataforseo/, archtest/)
+internal/       production packages (platform/, api/, visibility/, site/, dataforseo/, google/, archtest/)
 spikes/         throwaway experiments
 deploy/         local Postgres
 docs/           decisions and notes

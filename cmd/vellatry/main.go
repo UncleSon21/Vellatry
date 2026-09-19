@@ -36,6 +36,7 @@ import (
 	"github.com/UncleSon21/vellatry/internal/platform/jobs"
 	"github.com/UncleSon21/vellatry/internal/platform/metering"
 	"github.com/UncleSon21/vellatry/internal/platform/secrets"
+	"github.com/UncleSon21/vellatry/internal/site"
 	"github.com/UncleSon21/vellatry/internal/visibility/judge"
 	"github.com/UncleSon21/vellatry/internal/warehouse"
 	"github.com/UncleSon21/vellatry/internal/workers"
@@ -181,6 +182,11 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 	}
 	vis.Register(ws)
 	periodic = append(periodic, vis.PeriodicJobs()...)
+
+	siteJobs := &workers.Site{Pool: pool, Crawler: &site.Crawler{MaxPages: 300, Concurrency: 3, Delay: 250 * time.Millisecond}, Logger: log,
+		Bus: events.NewBus(nil, domainevents.Subscriptions()...)}
+	siteJobs.Register(ws)
+	periodic = append(periodic, siteJobs.PeriodicJobs()...)
 
 	if cfg.GoogleConfigured() {
 		box, err := secrets.NewBox(cfg.SecretKey)

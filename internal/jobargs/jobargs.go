@@ -90,3 +90,16 @@ type AnalyticsSyncRange struct {
 }
 
 func (AnalyticsSyncRange) Kind() string { return "analytics_sync_range" }
+
+// SiteCrawlAll schedules the weekly crawl for every tenant with a brand.
+type SiteCrawlAll struct{}
+
+func (SiteCrawlAll) Kind() string { return "site_crawl_all" }
+
+// SiteCrawl crawls and audits one tenant's site.
+type SiteCrawl struct {
+	OrgID   string `json:"org_id"`
+	Trigger string `json:"trigger"` // schedule | manual | onboarding
+}
+
+func (SiteCrawl) Kind() string { return "site_crawl" }

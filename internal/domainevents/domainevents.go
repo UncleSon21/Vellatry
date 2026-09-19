@@ -34,6 +34,14 @@ const (
 	SearchSynced              = "search.synced"
 	AnalyticsSynced           = "analytics.synced"
 	ReconciliationFailed      = "search.reconciliation_failed"
+
+	SiteCrawlRequested   = "site.crawl.requested"
+	SiteCrawlProgress    = "site.crawl.progress"
+	SiteCrawlCompleted   = "site.crawl.completed"
+	SiteCrawlFailed      = "site.crawl.failed"
+	FindingStatusChanged = "site.finding.status_changed"
+	FixStatusChanged     = "fix.status_changed"
+	FixesLive            = "fix.live" // fixes detected live on the site
 )
 
 // ConnectionPayload is the payload of connection events.
@@ -78,6 +86,16 @@ func Subscriptions() []events.Subscription {
 			Job: func(s events.Stored) river.JobArgs {
 				return jobargs.VisibilityCheckNow{OrgID: s.OrgID, PromptID: s.SubjectID}
 			},
+		},
+		{
+			Name:  "first-crawl",
+			Kinds: []string{OrgOnboarded},
+			Job:   func(s events.Stored) river.JobArgs { return jobargs.SiteCrawl{OrgID: s.OrgID, Trigger: "onboarding"} },
+		},
+		{
+			Name:  "crawl-now",
+			Kinds: []string{SiteCrawlRequested},
+			Job:   func(s events.Stored) river.JobArgs { return jobargs.SiteCrawl{OrgID: s.OrgID, Trigger: "manual"} },
 		},
 		{
 			Name:  "google-authorize",

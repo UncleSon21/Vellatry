@@ -79,6 +79,14 @@ func (s *Server) Handler() http.Handler {
 	authed.HandleFunc("GET /v1/analytics/channels", s.channels("channel"))
 	authed.HandleFunc("GET /v1/analytics/ai-referrals", s.channels("assistant"))
 
+	authed.HandleFunc("POST /v1/site/crawl", s.requestCrawl)
+	authed.HandleFunc("GET /v1/site/summary", s.siteSummary)
+	authed.HandleFunc("GET /v1/site/findings", s.siteFindings)
+	authed.HandleFunc("PATCH /v1/site/findings/{id}", s.patchFinding)
+	authed.HandleFunc("GET /v1/site/pages", s.sitePages)
+	authed.HandleFunc("GET /v1/fixes", s.listFixes)
+	authed.HandleFunc("PATCH /v1/fixes/{id}", s.patchFix)
+
 	authed.HandleFunc("GET /v1/events", s.listEvents)
 	authed.HandleFunc("GET /v1/events/stream", s.streamEvents)
 

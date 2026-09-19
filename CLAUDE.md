@@ -8,8 +8,8 @@ Key decisions in short form: `docs/decisions.md`.
 
 1. **No LLM spend on per-item paths.** Nothing that runs per answer, per keyword,
    per page or per query may call an LLM. Use code, or a model we trained.
-   - Only `internal/gateway` may call an LLM provider. Nowhere else imports an LLM
-     HTTP client or hard-codes a provider URL.
+   - Only `internal/platform/gateway` may call an LLM provider. Nowhere else imports
+     an LLM SDK or hard-codes a provider URL.
    - Every gateway call names a `purpose`. Per-item purposes are refused unless
      explicitly allow-listed (only the batch-API judge during the design-partner phase).
    - Every purpose has a maximum input size. Build prompts from explicit fields,
@@ -37,13 +37,18 @@ Key decisions in short form: `docs/decisions.md`.
 - **Absence rule.** Dashboard shows missing or broken connections with a fix action.
   The exported CMO report omits missing sections. No data means no report.
 - **Secrets** come from environment variables. Never commit `.env`.
+- **Customer-supplied URLs.** Anything we fetch because a customer typed it (their
+  domain, a page URL) goes through `site.PublicOnlyClient`, which refuses private,
+  loopback, link-local and reserved addresses at connect time. Never fetch one with
+  `http.DefaultClient`.
 - Do not copy code, prompts or data from any previous employer's system.
 
 ## How the rules are enforced
 
 - `internal/archtest` fails the build if: an LLM host appears outside the gateway, an LLM
-  SDK is imported anywhere, DataForSEO's host appears outside its client, `internal/api`
-  depends (even transitively) on an external client, or any SQL uses `SELECT *`.
+  SDK is imported outside the gateway, DataForSEO's host appears outside its client,
+  `internal/api` depends (even transitively) on an external client, or any SQL uses
+  `SELECT *`. Add every new package that calls out of Vellatry to `externalClients`.
 - `internal/platform/gateway`: every LLM call names a purpose from `DefaultPurposes()`
   (the full inventory of LLM use). Unknown or per-item purposes, oversize prompts and
   over-budget calls are refused before sending; identical requests hit the cache.
