@@ -4,6 +4,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestReserveRecordsActualAndRaisesEstimate(t *testing.T) {
@@ -31,6 +32,23 @@ func TestPendingReservationsCountAgainstLimit(t *testing.T) {
 	}
 	if _, err := b.Reserve(1); !errors.Is(err, ErrExceeded) {
 		t.Errorf("fourth reservation should be refused while three are pending, got %v", err)
+	}
+}
+
+func TestDailyResetsAtUTCMidnight(t *testing.T) {
+	now := time.Date(2026, 9, 19, 23, 59, 0, 0, time.UTC)
+	d := &Daily{LimitUSD: 0.01, EstimateUSD: 0.01, Now: func() time.Time { return now }}
+	release, err := d.Reserve(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	release(0.01)
+	if _, err := d.Reserve(1); !errors.Is(err, ErrExceeded) {
+		t.Fatalf("same day: want ErrExceeded, got %v", err)
+	}
+	now = now.Add(2 * time.Minute) // next UTC day
+	if _, err := d.Reserve(1); err != nil {
+		t.Errorf("next day should start fresh, got %v", err)
 	}
 }
 

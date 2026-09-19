@@ -12,9 +12,14 @@ blindspot into a fix whose outcome is measured.
 
 ## Status
 
-M0 (foundation) in progress: schema with row-level security, tenant isolation tests,
-River job queue, event bus, LLM gateway with purpose/size/budget guards, and
-architecture tests. Spikes run alongside.
+- **M0 foundation:** done. Row-level security, tenant isolation tests, River job queue,
+  event bus, LLM gateway with purpose/size/budget guards, architecture tests, CI.
+- **M1 Visibility engine:** backend done. Brand setup, topics and prompts,
+  budget-planned discovery (screen with 2 answers, confirm with 5), DataForSEO
+  collection, deterministic detection and gap matrix, blindspots, the judge, rollups,
+  and the API for Performance, Blindspots, Sources and the live event stream.
+  Needs DataForSEO credentials to request real answers.
+- Next: M2 Search Console + GA4, M3 site crawl and fixes, M4 reports, the dashboard UI.
 
 | Spike | Question | State |
 | --- | --- | --- |

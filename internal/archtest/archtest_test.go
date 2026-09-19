@@ -2,7 +2,7 @@
 // one fails the build instead of relying on review:
 //
 //  1. Only the model gateway may reference an LLM provider's API host.
-//  2. No package may import an LLM vendor SDK (raw HTTP through the gateway only).
+//  2. Only the model gateway may import an LLM vendor SDK.
 //  3. Only internal/dataforseo may reference DataForSEO's API host.
 //  4. The api role (internal/api) must not depend, even transitively, on any client
 //     that calls an external service: pages read stored results, they never wait on one.
@@ -75,12 +75,15 @@ func TestLLMHostsOnlyInGateway(t *testing.T) {
 	}
 }
 
-func TestNoLLMVendorSDKs(t *testing.T) {
+func TestLLMSDKsOnlyInGateway(t *testing.T) {
 	for _, f := range files(t) {
+		if underDir(f.pkg, module+"/internal/platform/gateway") {
+			continue // providers wrap vendor SDKs here and nowhere else
+		}
 		for _, imp := range f.imports {
 			for _, sdk := range llmSDKs {
 				if imp == sdk || strings.HasPrefix(imp, sdk+"/") {
-					t.Errorf("%s imports LLM SDK %q; use the gateway's raw HTTP providers", f.path, imp)
+					t.Errorf("%s imports LLM SDK %q; call LLMs through internal/platform/gateway", f.path, imp)
 				}
 			}
 		}

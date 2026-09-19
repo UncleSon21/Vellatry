@@ -30,6 +30,10 @@ var (
 	ErrPerItemRefused = errors.New("gateway: per-item purpose is not allowed to call an LLM")
 	ErrPromptTooLarge = errors.New("gateway: prompt exceeds the purpose's input limit")
 	ErrNoOrg          = errors.New("gateway: request has no org")
+	// ErrRefused means the model declined; the response must not be used.
+	ErrRefused = errors.New("gateway: model refused")
+	// ErrTruncated means the output hit the token limit; partial output is never used.
+	ErrTruncated = errors.New("gateway: output truncated at the token limit")
 )
 
 // Purpose declares one reason the product calls an LLM.
@@ -54,6 +58,9 @@ type Request struct {
 	OrgID    string
 	System   string
 	Messages []Message
+	// Schema, when set, constrains the reply to JSON matching this JSON Schema
+	// (structured outputs). Every object needs "additionalProperties": false.
+	Schema map[string]any
 }
 
 // Usage is what a call consumed.
@@ -71,16 +78,16 @@ type Response struct {
 	Cached bool
 }
 
-// Provider sends a request to one LLM vendor. Implementations live in subpackages and
-// use raw HTTP; vendor SDKs are not used.
+// Provider sends a request to one LLM vendor. Implementations live in subpackages of
+// the gateway, the only place allowed to import vendor SDKs.
 type Provider interface {
 	Complete(ctx context.Context, model string, maxOutputTokens int, req Request) (Response, error)
 }
 
-// Cache stores responses by request hash.
+// Cache stores responses by request hash, per tenant.
 type Cache interface {
-	Get(ctx context.Context, key string) (Response, bool, error)
-	Put(ctx context.Context, key string, r Response) error
+	Get(ctx context.Context, orgID, key string) (Response, bool, error)
+	Put(ctx context.Context, orgID, purpose, key string, r Response) error
 }
 
 // Budgets returns the spend cap for a tenant.
@@ -166,7 +173,7 @@ func (g *Gateway) Complete(ctx context.Context, req Request) (Response, error) {
 	model := g.cfg.Models[p.Tier]
 	key := cacheKey(p.Name, model, req)
 
-	if r, hit, err := g.cfg.Cache.Get(ctx, key); err != nil {
+	if r, hit, err := g.cfg.Cache.Get(ctx, req.OrgID, key); err != nil {
 		return Response{}, err
 	} else if hit {
 		r.Cached = true
@@ -184,11 +191,13 @@ func (g *Gateway) Complete(ctx context.Context, req Request) (Response, error) {
 		return Response{}, err
 	}
 	release(resp.Usage.CostUSD)
-	resp.Model = model
-	if err := g.cfg.Cache.Put(ctx, key, resp); err != nil {
+	if resp.Model == "" {
+		resp.Model = model // providers report the model that actually served, e.g. after a fallback
+	}
+	if err := g.cfg.Cache.Put(ctx, req.OrgID, p.Name, key, resp); err != nil {
 		return Response{}, err
 	}
-	return resp, g.cfg.Meter.Record(ctx, MeterRecord{OrgID: req.OrgID, Purpose: p.Name, Model: model, Usage: resp.Usage})
+	return resp, g.cfg.Meter.Record(ctx, MeterRecord{OrgID: req.OrgID, Purpose: p.Name, Model: resp.Model, Usage: resp.Usage})
 }
 
 func inputChars(r Request) int {
@@ -200,15 +209,17 @@ func inputChars(r Request) int {
 }
 
 func cacheKey(purpose, model string, r Request) string {
+	// encoding/json sorts map keys, so the schema hashes deterministically.
 	b, _ := json.Marshal(struct {
 		Purpose, Model, System string
 		Messages               []Message
-	}{purpose, model, r.System, r.Messages})
+		Schema                 map[string]any
+	}{purpose, model, r.System, r.Messages, r.Schema})
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
 }
 
-// MemoryCache is an in-process Cache. The Postgres-backed cache replaces it in M1.
+// MemoryCache is an in-process Cache for tests and local runs; production uses pgcache.
 type MemoryCache struct {
 	mu sync.Mutex
 	m  map[string]Response
@@ -216,17 +227,17 @@ type MemoryCache struct {
 
 func NewMemoryCache() *MemoryCache { return &MemoryCache{m: map[string]Response{}} }
 
-func (c *MemoryCache) Get(_ context.Context, key string) (Response, bool, error) {
+func (c *MemoryCache) Get(_ context.Context, orgID, key string) (Response, bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	r, ok := c.m[key]
+	r, ok := c.m[orgID+"/"+key]
 	return r, ok, nil
 }
 
-func (c *MemoryCache) Put(_ context.Context, key string, r Response) error {
+func (c *MemoryCache) Put(_ context.Context, orgID, _, key string, r Response) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.m[key] = r
+	c.m[orgID+"/"+key] = r
 	return nil
 }
 

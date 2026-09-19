@@ -25,3 +25,10 @@ adding a new line that supersedes the old one, not by editing history.
 | 18 | 2026-09-18 | River is the job queue and the outbox: events and subscriber jobs are written in the same transaction; no poller. |
 | 19 | 2026-09-18 | Architecture rules are tests (`internal/archtest`), not conventions. |
 | 20 | 2026-09-18 | The app never connects as a Postgres superuser (superusers bypass row-level security). |
+| 21 | 2026-09-20 | The Anthropic provider uses the official Go SDK (per Anthropic's guidance), confined to `internal/platform/gateway`; archtest now allows LLM SDKs there and nowhere else. |
+| 22 | 2026-09-20 | Cells are recomputed from the answers stored for their round, never incremented, so every collection job is idempotent. Rollups increment only when an answer is newly inserted. |
+| 23 | 2026-09-20 | Answer collection snoozes (River `JobSnooze`) until DataForSEO's task is ready: no poller, no pingback required. |
+| 24 | 2026-09-20 | The per-item judge is off unless `VELLATRY_ALLOW_JUDGE=1`, runs only on answers that mention the brand, keeps only evidence quoted verbatim from the answer, and never judges a truncated answer. |
+| 25 | 2026-09-20 | Job arguments (`internal/jobargs`) and event subscriptions (`internal/domainevents`) live in dependency-free packages so the api role can enqueue work without importing external clients. |
+| 26 | 2026-09-20 | Live dashboard updates: an `events` insert trigger `pg_notify`s ids only; one LISTEN connection per api process fans them out over SSE, filtered by org. |
+| 27 | 2026-09-20 | Dismissed blindspots stay dismissed through later answers: the customer's decision wins. |

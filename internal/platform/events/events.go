@@ -40,6 +40,7 @@ type Stored struct {
 }
 
 // Subscription turns matching events into a job. Subscriber jobs must be idempotent.
+// Job may return nil to skip an event it matched.
 type Subscription struct {
 	Name  string
 	Kinds []string // exact kinds, or "*" for every event
@@ -57,8 +58,20 @@ type Bus struct {
 	subs []Subscription
 }
 
-// NewBus returns a bus that enqueues subscriber jobs through jobs.
+// NewBus returns a bus that enqueues subscriber jobs through jobs. A nil jobs means
+// "use the job client of the running job", for emitting from inside a worker.
 func NewBus(jobs Inserter, subs ...Subscription) *Bus { return &Bus{jobs: jobs, subs: subs} }
+
+func (b *Bus) inserter(ctx context.Context) (Inserter, error) {
+	if b.jobs != nil {
+		return b.jobs, nil
+	}
+	c, err := river.ClientFromContextSafely[pgx.Tx](ctx)
+	if err != nil {
+		return nil, fmt.Errorf("events: no job client: %w", err)
+	}
+	return c, nil
+}
 
 // Emit records e for orgID and enqueues its subscribers, all inside tx. tx must come from
 // db.InTenant for orgID (row-level security checks the org) or db.InSystem.
@@ -84,16 +97,22 @@ func (b *Bus) Emit(ctx context.Context, tx pgx.Tx, orgID string, e Event) (Store
 	var jobs []river.JobArgs
 	for _, sub := range b.subs {
 		if matches(sub.Kinds, e.Kind) {
-			jobs = append(jobs, sub.Job(s))
+			if j := sub.Job(s); j != nil {
+				jobs = append(jobs, j)
+			}
 		}
 	}
 	if len(jobs) == 0 {
 		return s, nil
 	}
+	ins, err := b.inserter(ctx)
+	if err != nil {
+		return s, err
+	}
 	// The queue's tables have no row-level security and are not tenant data.
 	err = db.AsOwner(ctx, tx, func() error {
 		for _, j := range jobs {
-			if _, err := b.jobs.InsertTx(ctx, tx, j, nil); err != nil {
+			if _, err := ins.InsertTx(ctx, tx, j, nil); err != nil {
 				return fmt.Errorf("events: enqueue %s for %s: %w", j.Kind(), e.Kind, err)
 			}
 		}

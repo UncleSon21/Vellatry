@@ -9,7 +9,9 @@ package gateway
 func DefaultPurposes() []Purpose {
 	return []Purpose{
 		// Per-item: refused unless explicitly allowed.
-		{Name: "judge", PerItem: true, MaxInputChars: 12_000, MaxOutputTokens: 800, Tier: "cheap", EstimateUSD: 0.01},
+		// The judge sees the whole answer (never truncated); answers longer than this are
+		// left unjudged rather than cut.
+		{Name: "judge", PerItem: true, MaxInputChars: 24_000, MaxOutputTokens: 1_500, Tier: "cheap", EstimateUSD: 0.01},
 
 		// User-triggered, metered as credits.
 		{Name: "agent_plan", MaxInputChars: 40_000, MaxOutputTokens: 2_000, Tier: "strong", EstimateUSD: 0.10},

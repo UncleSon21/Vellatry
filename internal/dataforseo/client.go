@@ -41,12 +41,12 @@ func IsTransient(err error) bool {
 // Config configures a Client.
 type Config struct {
 	Login, Password string
-	BaseURL         string         // default DefaultBaseURL
-	HTTPClient      *http.Client   // default http.DefaultClient
-	Concurrency     int            // max requests in flight, default 4
-	CallTimeout     time.Duration  // per HTTP attempt, default 150s (live LLM tasks run up to 120s)
-	MaxRetries      int            // transient retries per call, default 3, negative disables
-	Budget          *budget.Budget // required; paid calls fail with budget.ErrExceeded before sending
+	BaseURL         string          // default DefaultBaseURL
+	HTTPClient      *http.Client    // default http.DefaultClient
+	Concurrency     int             // max requests in flight, default 4
+	CallTimeout     time.Duration   // per HTTP attempt, default 150s (live LLM tasks run up to 120s)
+	MaxRetries      int             // transient retries per call, default 3, negative disables
+	Budget          budget.Reserver // required; paid calls fail with budget.ErrExceeded before sending
 }
 
 // Client talks to DataForSEO.
