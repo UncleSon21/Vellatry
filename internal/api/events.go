@@ -56,14 +56,54 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, nonNilT(out))
 }
 
+// streamTicket lets a browser open the event stream. EventSource cannot set headers,
+// and a session token does not belong in a URL (it is logged by every proxy on the
+// way), so the dashboard asks for a ticket that is good for one minute and carries
+// nothing but the org and the user it was issued to.
+type streamTicket struct {
+	Org  string `json:"org"`
+	User string `json:"user"`
+}
+
+// StreamTicketTTL is how long a ticket is good for.
+const StreamTicketTTL = time.Minute
+
+// eventTicket issues a stream ticket to an authenticated user.
+func (s *Server) eventTicket(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r.Context())
+	if sess.OrgID == "" {
+		s.fail(w, r, forbidden("Finish setting up your organisation first."))
+		return
+	}
+	if s.Box == nil {
+		s.fail(w, r, badRequest("The live stream needs VELLATRY_SECRET_KEY on the server."))
+		return
+	}
+	ticket, err := s.Box.Sign(streamTicket{Org: sess.OrgID, User: sess.UserID}, StreamTicketTTL, time.Now())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ticket": ticket, "expires_in": int(StreamTicketTTL.Seconds())})
+}
+
 // streamEvents pushes the org's events over Server-Sent Events as they happen. Each
 // message carries ids only; the client reads details through the API, which applies
 // the same tenant scoping as every other read.
 func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r.Context())
 	if sess.OrgID == "" {
-		s.fail(w, r, forbidden("Finish setting up your organisation first."))
-		return
+		// Not an authenticated request: it must carry a ticket instead.
+		if s.Box == nil {
+			s.fail(w, r, forbidden("Sign in to follow changes."))
+			return
+		}
+		var t streamTicket
+		if err := s.Box.Verify(r.URL.Query().Get("ticket"), &t, time.Now()); err != nil || t.Org == "" {
+			s.fail(w, r, forbidden("That stream ticket has expired. Reload the page."))
+			return
+		}
+		sess = Session{OrgID: t.Org, UserID: t.User}
 	}
 	flusher, ok := w.(http.Flusher)
 	if !ok {

@@ -60,3 +60,6 @@ adding a new line that supersedes the old one, not by editing history.
 | 53 | 2026-09-20 | The planner may only choose an analysis from the catalogue and its slots; an invented analysis name is treated as "none of these fit". |
 | 54 | 2026-09-20 | Narration is checked against the evidence: a number the analysis did not compute means the model's wording is dropped and the code's own answer is shown. The prior system's agent was wrong on about a quarter of its factual claims, and the errors were arithmetic. |
 | 55 | 2026-09-20 | Every question, route, analysis and answer is logged (`agent_questions`): the team can read it, and it is the labelled data the trained router will learn from. |
+| 56 | 2026-09-20 | The dashboard reads the api and nothing else: no direct calls to Google, DataForSEO or a model, and no server-side data fetching that could bypass the api's tenancy checks. |
+| 57 | 2026-09-20 | No UI framework, no chart library: one stylesheet and inline SVG. Fewer dependencies to patch, and the same chart code the reports already use. |
+| 58 | 2026-09-20 | The event stream is opened with a one-minute ticket rather than a session token in the URL, because EventSource cannot set headers and URLs end up in logs. |

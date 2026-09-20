@@ -61,7 +61,12 @@ blindspot into a fix whose outcome is measured.
   analysis from the catalogue and put its numbers into sentences; any figure that is not
   in the evidence is dropped and the code's own wording is shown instead. Actions are
   proposals until someone confirms them.
-- Next: the dashboard UI (`web/`), then M7 (notebook and the CMO report bot).
+- **Dashboard (`web/`):** Next.js, no UI framework and no chart library. Overview,
+  Performance, Blindspots, Sources, Search, Topics, Site, Fixes, Reports, Automations
+  and Connections, each reading the api and nothing else, following the event stream
+  instead of polling. The agent is a panel on every page and sends the page and its
+  date range with the question.
+- Next: M7 (notebook and the CMO report bot), and the first design partner.
 
 | Spike | Question | State |
 | --- | --- | --- |
@@ -75,6 +80,7 @@ blindspot into a fix whose outcome is measured.
 ```
 cmd/vellatry/   one binary: migrate | api | worker
 internal/       production packages (platform/, api/, visibility/, site/, dataforseo/, google/, archtest/)
+web/            the dashboard (Next.js); talks to the api and nothing else
 spikes/         throwaway experiments
 deploy/         local Postgres
 docs/           decisions and notes

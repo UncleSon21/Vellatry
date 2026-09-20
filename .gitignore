@@ -19,3 +19,9 @@ node_modules/
 .next/
 __pycache__/
 .venv/
+
+# The dashboard
+web/node_modules/
+web/.next/
+web/out/
+*.tsbuildinfo

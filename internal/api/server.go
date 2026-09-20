@@ -40,6 +40,7 @@ type Server struct {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.healthz)
+	mux.HandleFunc("GET /v1/events/stream", s.streamEvents)                 // authenticated by a one-minute ticket
 	mux.HandleFunc("GET /oauth/google/callback", s.oauthCallback("google")) // authenticated by its signed state
 	mux.HandleFunc("GET /oauth/asana/callback", s.oauthCallback("asana"))
 
@@ -145,7 +146,7 @@ func (s *Server) Handler() http.Handler {
 	authed.HandleFunc("POST /v1/hub/rotate", s.rotateHub)
 
 	authed.HandleFunc("GET /v1/events", s.listEvents)
-	authed.HandleFunc("GET /v1/events/stream", s.streamEvents)
+	authed.HandleFunc("POST /v1/events/ticket", s.eventTicket)
 
 	mux.Handle("/v1/", s.authenticate(authed))
 	return s.recover(s.cors(mux))
