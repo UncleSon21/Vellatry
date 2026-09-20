@@ -59,6 +59,8 @@ const (
 	KeywordRunRequested  = "keywords.run_requested"
 	KeywordRunStarted    = "keywords.run_started"
 	KeywordRunCompleted  = "keywords.run_completed"
+	AgentQuestionAsked   = "agent.question_asked"
+	AgentAnswered        = "agent.answered"
 	HubSignedIn          = "hub.signed_in"
 )
 
@@ -286,6 +288,19 @@ func Subscriptions() []events.Subscription {
 					return nil
 				}
 				return jobargs.HubLoginEmail{OrgID: s.OrgID, Email: p.Email}
+			},
+		},
+		{
+			Name:  "answer-question",
+			Kinds: []string{AgentQuestionAsked},
+			Job: func(s events.Stored) river.JobArgs {
+				var p struct {
+					QuestionID int64 `json:"question_id"`
+				}
+				if json.Unmarshal(s.Payload, &p) != nil || p.QuestionID == 0 {
+					return nil
+				}
+				return jobargs.AgentAnswer{OrgID: s.OrgID, QuestionID: p.QuestionID}
 			},
 		},
 		{

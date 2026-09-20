@@ -245,6 +245,12 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 	}
 	defer closeWH()
 
+	ask := &workers.Agent{Pool: pool, Logger: log, Planner: drafter, Bus: events.NewBus(nil, domainevents.Subscriptions()...)}
+	ask.Register(ws)
+	if drafter == nil {
+		log.Info("the agent answers only the questions its router recognises (no ANTHROPIC_API_KEY)")
+	}
+
 	research := &workers.Keywords{
 		Pool: pool, Logger: log, Notify: auto, Research: researchAPI, Warehouse: wh,
 		Bus: events.NewBus(nil, domainevents.Subscriptions()...),

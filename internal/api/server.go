@@ -118,6 +118,11 @@ func (s *Server) Handler() http.Handler {
 	authed.HandleFunc("DELETE /v1/watchers/{id}", s.deleteWatcher)
 	authed.HandleFunc("GET /v1/notifications", s.listNotifications)
 
+	authed.HandleFunc("POST /v1/agent/ask", s.ask)
+	authed.HandleFunc("GET /v1/agent/questions", s.agentHistory)
+	authed.HandleFunc("GET /v1/agent/questions/{id}", s.agentQuestion)
+	authed.HandleFunc("POST /v1/agent/actions", s.agentAction)
+
 	authed.HandleFunc("POST /v1/keywords/runs", s.requestResearch)
 	authed.HandleFunc("GET /v1/keywords/runs", s.listResearchRuns)
 	authed.HandleFunc("GET /v1/keywords", s.listKeywords)

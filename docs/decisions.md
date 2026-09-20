@@ -55,3 +55,8 @@ adding a new line that supersedes the old one, not by editing history.
 | 48 | 2026-09-20 | Keyword research has its own DataForSEO budget and its own per-unit estimate (one queued search result), because a Labs call costs about a hundred times a SERP task and a shared budget would size every reservation by the dearest call. |
 | 49 | 2026-09-20 | Clustered topics arrive as proposals. Approving one emits the same event as adding a topic by hand, which is what starts the Visibility engine spending on it. |
 | 50 | 2026-09-20 | Rejections are kept with their reason: they are the training data for the relevance classifier that replaces the rules. |
+| 51 | 2026-09-20 | The agent is a pipeline, not a chat loop: router, analysis, evidence bundle, headline picked by code, narration, figure check, confirm-first actions. |
+| 52 | 2026-09-20 | A question the router recognises is answered synchronously in the api from stored rows; anything else is queued for the worker, where the model runs. The api still never waits on an external call. |
+| 53 | 2026-09-20 | The planner may only choose an analysis from the catalogue and its slots; an invented analysis name is treated as "none of these fit". |
+| 54 | 2026-09-20 | Narration is checked against the evidence: a number the analysis did not compute means the model's wording is dropped and the code's own answer is shown. The prior system's agent was wrong on about a quarter of its factual claims, and the errors were arithmetic. |
+| 55 | 2026-09-20 | Every question, route, analysis and answer is logged (`agent_questions`): the team can read it, and it is the labelled data the trained router will learn from. |

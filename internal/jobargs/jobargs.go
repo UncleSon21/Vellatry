@@ -275,3 +275,14 @@ type KeywordCluster struct {
 }
 
 func (KeywordCluster) Kind() string { return "keyword_cluster" }
+
+// AgentAnswer answers a question the router was not sure about.
+type AgentAnswer struct {
+	OrgID      string `json:"org_id"`
+	QuestionID int64  `json:"question_id"`
+}
+
+func (AgentAnswer) Kind() string { return "agent_answer" }
+
+// InsertOpts: a person is waiting, so give up rather than retry for hours.
+func (AgentAnswer) InsertOpts() river.InsertOpts { return river.InsertOpts{MaxAttempts: 3} }

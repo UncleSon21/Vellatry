@@ -28,6 +28,9 @@ Key decisions in short form: `docs/decisions.md`.
 
 - **Deterministic first.** Scores, counts, positions, bands and gaps are computed by
   code. A model never produces a number that is shown to a user.
+- **The agent never computes.** Analyses (`internal/agent`) compute every number and
+  choose the headline; a model may only pick which analysis to run and word the answer,
+  and `agent.Checked` drops any sentence citing a figure the evidence does not hold.
 - **Tenancy.** Every tenant table has `org_id` and row-level security with `FORCE`.
   Tenant work runs inside a transaction that sets the org with `SET LOCAL`.
 - **Idempotent jobs.** Any job may run twice. Use upserts or partition replacement.

@@ -54,7 +54,14 @@ blindspot into a fix whose outcome is measured.
   opportunity with every component visible, and flagged when it has no page, the page
   answers a different need, or two of the brand's own pages compete. New topics are
   proposed; approving one is what starts Vellatry measuring it.
-- Next: M6 agent, the dashboard UI.
+- **M6 Agent:** backend done. A router recognises the questions teams actually ask and
+  answers them in the api from stored rows, with no external call and nothing to wait
+  for: eleven analyses, each computing its own numbers and choosing its own headline.
+  Anything it does not recognise goes to the worker, where a model may only choose an
+  analysis from the catalogue and put its numbers into sentences; any figure that is not
+  in the evidence is dropped and the code's own wording is shown instead. Actions are
+  proposals until someone confirms them.
+- Next: the dashboard UI (`web/`), then M7 (notebook and the CMO report bot).
 
 | Spike | Question | State |
 | --- | --- | --- |
