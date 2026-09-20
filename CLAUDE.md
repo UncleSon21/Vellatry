@@ -69,6 +69,13 @@ Key decisions in short form: `docs/decisions.md`.
   connecting owner matches no policy.
 - Never connect as a superuser; superusers bypass row-level security. Local and test
   databases use `vellatry_app` (see `deploy/`).
+- The app user is a member of `vellatry_tenant` and `vellatry_system` **WITH INHERIT
+  FALSE** (migration 0009). Membership is what lets `SET ROLE` work; inheritance would
+  apply both roles' policies to every query and quietly undo fail-closed. Do not grant
+  it plainly.
+- A unique constraint on a tenant table must include `org_id`. A global one spans
+  tenants, and under row-level security the colliding row is invisible: `ON CONFLICT DO
+  NOTHING` then silently drops the write (migration 0010).
 - Untrusted SQL (the future agent query tool) gets its own low-privilege login role and
   connection, never the app pool: the owner can always `SET ROLE`.
 - Events: `events.Bus.Emit` inside the caller's transaction writes the event and one job

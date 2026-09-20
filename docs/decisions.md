@@ -63,3 +63,6 @@ adding a new line that supersedes the old one, not by editing history.
 | 56 | 2026-09-20 | The dashboard reads the api and nothing else: no direct calls to Google, DataForSEO or a model, and no server-side data fetching that could bypass the api's tenancy checks. |
 | 57 | 2026-09-20 | No UI framework, no chart library: one stylesheet and inline SVG. Fewer dependencies to patch, and the same chart code the reports already use. |
 | 58 | 2026-09-20 | The event stream is opened with a one-minute ticket rather than a session token in the URL, because EventSource cannot set headers and URLs end up in logs. |
+| 59 | 2026-09-20 | The app user holds its role membership WITH INHERIT FALSE. A plain GRANT let the owner inherit `system_access`, so a query that chose no role saw every tenant: the isolation test caught it the first time it ran against a real database. |
+| 60 | 2026-09-20 | Unique constraints on tenant tables include `org_id`. A global unique index spans tenants, and the colliding row is invisible under row-level security, so an upsert silently dropped a queued task. |
+| 61 | 2026-09-20 | Migrations take a Postgres advisory lock: instances start together, and each test package is its own process against one database. |

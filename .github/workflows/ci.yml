@@ -40,7 +40,16 @@ jobs:
         run: go vet ./...
 
       - name: go test
-        run: go test -race -count=1 ./...
+        run: |
+          set -o pipefail
+          go test -race -count=1 ./... 2>&1 | tee test.log && exit 0
+          {
+            echo '### Test failures'
+            echo '```'
+            grep -E '^(--- FAIL|FAIL|\s+[a-z_/]+\.go:[0-9]+:)' test.log | head -60
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
 
   web:
     runs-on: ubuntu-latest
