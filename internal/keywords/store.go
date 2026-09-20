@@ -258,7 +258,7 @@ func QueueSERP(ctx context.Context, tx pgx.Tx, org string, runID int64, keyword,
 	var id int64
 	err := tx.QueryRow(ctx, `INSERT INTO serp_tasks (org_id, run_id, keyword, provider_task_id, status, cost_usd, error)
 		VALUES ($1, $2, $3, nullif($4, ''), $5, $6, $7)
-		ON CONFLICT (provider_task_id) DO NOTHING
+		ON CONFLICT (org_id, provider_task_id) DO NOTHING
 		RETURNING id`, org, runID, keyword, taskID, status, cost, errText).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, nil // the same provider task is already queued

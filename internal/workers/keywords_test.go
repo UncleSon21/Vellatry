@@ -126,6 +126,7 @@ func TestKeywordResearch(t *testing.T) {
 		t.Errorf("seeds sent = %v; the team's topics and the asked-for seeds both count", fake.seeds)
 	}
 	var runID int64
+	var proposedAfterFirst int
 	tenant(func(ctx context.Context, tx pgx.Tx) error {
 		runs, err := keywords.ListRuns(ctx, tx, 5)
 		if err != nil || len(runs) != 1 {
@@ -149,12 +150,12 @@ func TestKeywordResearch(t *testing.T) {
 		if reason != keywords.RejectCompetitorBrand {
 			t.Errorf("reject reason = %q", reason)
 		}
-		var comp []byte
+		var comp map[string]int
 		if err := tx.QueryRow(ctx, `SELECT competitors FROM keywords WHERE keyword = 'best mattress australia'`).Scan(&comp); err != nil {
 			return err
 		}
-		if !strings.Contains(string(comp), `"ecosa.com.au":4`) {
-			t.Errorf("competitor positions = %s", comp)
+		if comp["ecosa.com.au"] != 4 {
+			t.Errorf("competitor positions = %v, want Ecosa at 4", comp)
 		}
 		var queuedTasks int
 		err = tx.QueryRow(ctx, `SELECT count(*) FROM serp_tasks WHERE run_id = $1 AND status = 'queued'`, runID).Scan(&queuedTasks)
@@ -243,6 +244,9 @@ func TestKeywordResearch(t *testing.T) {
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM keywords WHERE topic_id IS NOT NULL`).Scan(&assigned); err != nil {
 			return err
 		}
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM topics WHERE status = 'proposed'`).Scan(&proposedAfterFirst); err != nil {
+			return err
+		}
 		if assigned < 4 {
 			t.Errorf("keywords assigned to topics = %d", assigned)
 		}
@@ -290,8 +294,8 @@ func TestKeywordResearch(t *testing.T) {
 	tenant(func(ctx context.Context, tx pgx.Tx) error {
 		var topics int
 		err := tx.QueryRow(ctx, `SELECT count(*) FROM topics WHERE status = 'proposed'`).Scan(&topics)
-		if topics > 3 {
-			t.Errorf("proposed topics after a second clustering = %d; the same clusters must match their topics", topics)
+		if topics != proposedAfterFirst {
+			t.Errorf("proposed topics went from %d to %d; the same clusters must land on the same topics", proposedAfterFirst, topics)
 		}
 		return err
 	})

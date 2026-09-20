@@ -46,8 +46,30 @@ func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// Migrate applies River's schema, then Vellatry's. Safe to run repeatedly.
+// migrationLock is an arbitrary but fixed key: every Vellatry process waits on the
+// same one.
+const migrationLock int64 = 8314552901001
+
+// Migrate applies River's schema, then Vellatry's. Safe to run repeatedly, and safe to
+// run from several processes at once.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
+	// One migration at a time across every process. Two api or worker instances can
+	// start together, and `go test ./...` runs each package in its own process against
+	// the same test database; without this they race, and one fails on a table the
+	// other has just created.
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock($1)`, migrationLock); err != nil {
+		return fmt.Errorf("db: waiting for the migration lock: %w", err)
+	}
+	defer func() {
+		// Best effort: the lock is released with the connection in any case.
+		_, _ = conn.Exec(context.WithoutCancel(ctx), `SELECT pg_advisory_unlock($1)`, migrationLock)
+	}()
+
 	rm, err := rivermigrate.New(riverpgxv5.New(pool), nil)
 	if err != nil {
 		return err

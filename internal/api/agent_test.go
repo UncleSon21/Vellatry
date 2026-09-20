@@ -76,7 +76,9 @@ func TestAgentAnswersFromStoredData(t *testing.T) {
 	}
 
 	// A question the router knows is answered on the spot, from stored rows.
-	code, body, _ = lead.do("POST", "/v1/agent/ask", map[string]any{"question": "Why did our AI visibility drop this month?"})
+	// No date in the question, so the analysis uses its default four weeks: exactly the
+	// half of the seeded data where visibility is 30%, against the half before it.
+	code, body, _ = lead.do("POST", "/v1/agent/ask", map[string]any{"question": "Why did our AI visibility drop?"})
 	if code != http.StatusOK {
 		t.Fatalf("ask: %d %v", code, body)
 	}
@@ -84,7 +86,8 @@ func TestAgentAnswersFromStoredData(t *testing.T) {
 		t.Fatalf("answer = %v", body)
 	}
 	answer, _ := body["answer"].(string)
-	if !strings.Contains(answer, "AI visibility is 30.0%") || !strings.Contains(answer, "down 30.0 points") {
+	if !strings.Contains(answer, "AI visibility is 30.0%") || !strings.Contains(answer, "down 30.0 points") ||
+		!strings.Contains(answer, "Visibility before: 60.0%") {
 		t.Errorf("answer = %q; the numbers must be computed, not guessed", answer)
 	}
 	bundle, ok := body["bundle"].(map[string]any)
