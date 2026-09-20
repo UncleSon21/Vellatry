@@ -193,6 +193,35 @@ func (b *BigQuery) SearchTop(ctx context.Context, org string, from, to time.Time
 	return out[0], out[1], nil
 }
 
+func (b *BigQuery) QueryPages(ctx context.Context, org string, queries []string, from, to time.Time) ([]QueryPage, error) {
+	if len(queries) == 0 {
+		return nil, nil
+	}
+	it, err := b.query(ctx, fmt.Sprintf(`
+		SELECT query, page, SUM(clicks), SUM(impressions) FROM %s
+		WHERE date BETWEEN @from AND @to AND query IN UNNEST(@queries) AND page IS NOT NULL
+		GROUP BY query, page ORDER BY SUM(impressions) DESC LIMIT 5000`, b.ref("search", org)),
+		map[string]any{"from": civil.DateOf(from), "to": civil.DateOf(to), "queries": queries})
+	if isNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var out []QueryPage
+	for {
+		var row []bigquery.Value
+		err := it.Next(&row)
+		if errors.Is(err, iterator.Done) {
+			return out, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, QueryPage{Query: str(row[0]), Page: str(row[1]), Clicks: i64(row[2]), Impressions: i64(row[3])})
+	}
+}
+
 func (b *BigQuery) SearchDetailImpressions(ctx context.Context, org string, from, to time.Time) (map[string]int64, error) {
 	it, err := b.query(ctx, fmt.Sprintf(`SELECT CAST(date AS STRING), SUM(impressions) FROM %s WHERE date BETWEEN @from AND @to GROUP BY date`, b.ref("search", org)),
 		map[string]any{"from": civil.DateOf(from), "to": civil.DateOf(to)})

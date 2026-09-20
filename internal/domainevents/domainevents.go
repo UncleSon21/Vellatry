@@ -56,6 +56,9 @@ const (
 	ReportPublished      = "report.published"
 	ReportWithdrawn      = "report.withdrawn"
 	HubLoginRequested    = "hub.login_requested"
+	KeywordRunRequested  = "keywords.run_requested"
+	KeywordRunStarted    = "keywords.run_started"
+	KeywordRunCompleted  = "keywords.run_completed"
 	HubSignedIn          = "hub.signed_in"
 )
 
@@ -284,6 +287,22 @@ func Subscriptions() []events.Subscription {
 				}
 				return jobargs.HubLoginEmail{OrgID: s.OrgID, Email: p.Email}
 			},
+		},
+		{
+			Name:  "research-keywords",
+			Kinds: []string{KeywordRunRequested},
+			Job: func(s events.Stored) river.JobArgs {
+				var p struct {
+					Seeds []string `json:"seeds"`
+				}
+				_ = json.Unmarshal(s.Payload, &p)
+				return jobargs.KeywordRun{OrgID: s.OrgID, Trigger: "manual", Seeds: p.Seeds}
+			},
+		},
+		{
+			Name:  "first-keywords",
+			Kinds: []string{OrgOnboarded},
+			Job:   func(s events.Stored) river.JobArgs { return jobargs.KeywordRun{OrgID: s.OrgID, Trigger: "onboarding"} },
 		},
 		{
 			Name:  "close-done-tasks",

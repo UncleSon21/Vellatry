@@ -69,6 +69,45 @@ func (m *Memory) SearchTop(_ context.Context, org string, from, to time.Time, li
 	return top(q, limit), top(p, limit), nil
 }
 
+func (m *Memory) QueryPages(_ context.Context, org string, queries []string, from, to time.Time) ([]QueryPage, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	want := map[string]bool{}
+	for _, q := range queries {
+		want[q] = true
+	}
+	totals := map[[2]string]*QueryPage{}
+	for day, rows := range m.search[org] {
+		if !inRange(day, from, to) {
+			continue
+		}
+		for _, r := range rows {
+			if !want[r.Query] || r.Page == "" {
+				continue
+			}
+			key := [2]string{r.Query, r.Page}
+			t := totals[key]
+			if t == nil {
+				t = &QueryPage{Query: r.Query, Page: r.Page}
+				totals[key] = t
+			}
+			t.Clicks += r.Clicks
+			t.Impressions += r.Impressions
+		}
+	}
+	out := make([]QueryPage, 0, len(totals))
+	for _, t := range totals {
+		out = append(out, *t)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Query != out[j].Query {
+			return out[i].Query < out[j].Query
+		}
+		return out[i].Impressions > out[j].Impressions
+	})
+	return out, nil
+}
+
 func (m *Memory) SearchDetailImpressions(_ context.Context, org string, from, to time.Time) (map[string]int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

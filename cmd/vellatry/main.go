@@ -153,6 +153,7 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 		Bus:       events.NewBus(nil, domainevents.Subscriptions()...),
 		JudgeName: cfg.CheapModel + "/" + judge.Version,
 	}
+	var researchAPI workers.KeywordsAPI
 	if cfg.DataForSEOLogin != "" && cfg.DataForSEOPassword != "" {
 		client, err := dataforseo.New(dataforseo.Config{
 			Login: cfg.DataForSEOLogin, Password: cfg.DataForSEOPassword,
@@ -162,6 +163,17 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 			return err
 		}
 		vis.Answers = client
+		// Keyword research has its own daily cap and its own per-unit estimate: one
+		// search-result task costs a fraction of an AI answer, and sharing a budget
+		// would make every reservation the size of the dearest call.
+		researchClient, err := dataforseo.New(dataforseo.Config{
+			Login: cfg.DataForSEOLogin, Password: cfg.DataForSEOPassword,
+			Budget: &budget.Daily{LimitUSD: cfg.KeywordsDailyUSD, EstimateUSD: 0.0006},
+		})
+		if err != nil {
+			return err
+		}
+		researchAPI = researchClient
 	} else {
 		log.Warn("DATAFORSEO_LOGIN/PASSWORD not set: the Visibility engine will not request answers")
 	}
@@ -227,6 +239,22 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 	reportJobs.Register(ws)
 	periodic = append(periodic, reportJobs.PeriodicJobs()...)
 
+	wh, closeWH, err := openWarehouse(ctx, cfg, log)
+	if err != nil {
+		return err
+	}
+	defer closeWH()
+
+	research := &workers.Keywords{
+		Pool: pool, Logger: log, Notify: auto, Research: researchAPI, Warehouse: wh,
+		Bus: events.NewBus(nil, domainevents.Subscriptions()...),
+	}
+	research.Register(ws)
+	periodic = append(periodic, research.PeriodicJobs()...)
+	if researchAPI == nil {
+		log.Warn("keyword research disabled: DATAFORSEO_LOGIN/PASSWORD not set")
+	}
+
 	if cfg.AsanaConfigured() {
 		tasks := &workers.Asana{
 			Pool: pool, Box: box, Logger: log, AppURL: cfg.AppURL,
@@ -239,11 +267,6 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 	}
 
 	if cfg.GoogleConfigured() {
-		wh, closeWH, err := openWarehouse(ctx, cfg, log)
-		if err != nil {
-			return err
-		}
-		defer closeWH()
 		sync := &workers.Search{
 			Pool: pool, Box: box, Warehouse: wh, Logger: log,
 			OAuth: googleauth.Config(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL),
@@ -262,7 +285,8 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 	if err := client.Start(ctx); err != nil {
 		return err
 	}
-	log.Info("worker started", "visibility", vis.Answers != nil, "judge", vis.Judge != nil, "google", cfg.GoogleConfigured())
+	log.Info("worker started", "visibility", vis.Answers != nil, "judge", vis.Judge != nil, "google", cfg.GoogleConfigured(),
+		"keywords", researchAPI != nil, "asana", cfg.AsanaConfigured(), "email", cfg.EmailConfigured(), "pdf", cfg.GotenbergURL != "")
 	<-ctx.Done()
 	stopCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

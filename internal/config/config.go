@@ -25,6 +25,9 @@ type Config struct {
 	DataForSEOLogin    string
 	DataForSEOPassword string
 	DataForSEODailyUSD float64
+	// KeywordsDailyUSD caps keyword research separately: its calls are cheap and many,
+	// and must not eat the budget the Visibility engine needs.
+	KeywordsDailyUSD float64
 
 	// LLM gateway.
 	AnthropicAPIKey   string
@@ -130,6 +133,9 @@ func FromEnv() (Config, error) {
 		return c, err
 	}
 	if c.LLMDailyUSDTenant, err = number("LLM_DAILY_USD_PER_TENANT", 2); err != nil {
+		return c, err
+	}
+	if c.KeywordsDailyUSD, err = number("DATAFORSEO_KEYWORDS_DAILY_USD", 3); err != nil {
 		return c, err
 	}
 	if c.DatabaseURL == "" {

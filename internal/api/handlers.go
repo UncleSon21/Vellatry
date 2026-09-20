@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -350,29 +351,6 @@ type topic struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
-func (s *Server) listTopics(w http.ResponseWriter, r *http.Request) {
-	var out []topic
-	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `
-			SELECT t.id::text, t.name, t.source, t.demand_monthly, t.status, t.created_at,
-			       (SELECT count(*) FROM prompts p WHERE p.topic_id = t.id AND p.status <> 'rejected')::int
-			FROM topics t ORDER BY t.demand_monthly DESC NULLS LAST, t.name`)
-		if err != nil {
-			return err
-		}
-		out, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (topic, error) {
-			var t topic
-			return t, r.Scan(&t.ID, &t.Name, &t.Source, &t.DemandMonthly, &t.Status, &t.CreatedAt, &t.Prompts)
-		})
-		return err
-	})
-	if err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, nonNilT(out))
-}
-
 func (s *Server) addTopic(w http.ResponseWriter, r *http.Request) {
 	if err := canEdit(r); err != nil {
 		s.fail(w, r, err)
@@ -441,6 +419,7 @@ func (s *Server) patchTopic(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Status        *string `json:"status"`
 		DemandMonthly *int    `json:"demand_monthly"`
+		PageURL       *string `json:"page_url"`
 	}
 	if err := decode(r, &in); err != nil {
 		s.fail(w, r, err)
@@ -456,11 +435,32 @@ func (s *Server) patchTopic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `UPDATE topics SET status = coalesce($2, status), demand_monthly = coalesce($3, demand_monthly) WHERE id = $1`,
-			id, in.Status, in.DemandMonthly)
-		if err == nil && tag.RowsAffected() == 0 {
+		var was string
+		err := tx.QueryRow(ctx, `SELECT status FROM topics WHERE id = $1 FOR UPDATE`, id).Scan(&was)
+		if isNoRows(err) {
 			return notFound("Topic not found.")
 		}
+		if err != nil {
+			return err
+		}
+		if in.PageURL != nil {
+			if err := checkOwnPage(ctx, tx, *in.PageURL); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `UPDATE topics SET page_url = nullif($2, ''), page_source = CASE WHEN $2 = '' THEN NULL ELSE 'manual' END,
+				page_kind = NULL, updated_at = now() WHERE id = $1`, id, strings.TrimSpace(*in.PageURL)); err != nil {
+				return err
+			}
+		}
+		if _, err := tx.Exec(ctx, `UPDATE topics SET status = coalesce($2, status), demand_monthly = coalesce($3, demand_monthly),
+			updated_at = now() WHERE id = $1`, id, in.Status, in.DemandMonthly); err != nil {
+			return err
+		}
+		// Approving a proposed topic is what starts Vellatry measuring it.
+		if was != "proposed" || in.Status == nil || *in.Status != "active" {
+			return nil
+		}
+		_, err = s.Bus.Emit(ctx, tx, sessionFrom(ctx).OrgID, events.Event{Kind: domainevents.TopicAdded, SubjectID: id, Actor: sessionFrom(ctx).UserID})
 		return err
 	})
 	if err != nil {
@@ -673,6 +673,27 @@ func isUniqueViolation(err error) bool {
 func isForeignKeyViolation(err error) bool {
 	var pg *pgconn.PgError
 	return errors.As(err, &pg) && pg.Code == "23503"
+}
+
+// checkOwnPage refuses a page that is not on the brand's own site.
+func checkOwnPage(ctx context.Context, tx pgx.Tx, raw string) error {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil // clearing the mapping
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		return badRequest("Give the page's full address, starting with https://.")
+	}
+	var domain string
+	if err := tx.QueryRow(ctx, `SELECT domain FROM brands ORDER BY created_at LIMIT 1`).Scan(&domain); err != nil {
+		return err
+	}
+	host := strings.ToLower(strings.TrimPrefix(u.Host, "www."))
+	if host != domain && !strings.HasSuffix(host, "."+domain) {
+		return badRequest("That page is not on " + domain + ".")
+	}
+	return nil
 }
 
 func validUUID(s string) bool {

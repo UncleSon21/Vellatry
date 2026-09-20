@@ -36,12 +36,23 @@ type Warehouse interface {
 	ReplaceAnalyticsDay(ctx context.Context, orgID string, day time.Time, rows []google.AnalyticsRow) error
 	// SearchTop returns the top queries and pages by impressions for [from, to].
 	SearchTop(ctx context.Context, orgID string, from, to time.Time, limit int) (queries, pages []Rollup, err error)
+	// QueryPages returns, for each of queries, the pages that appeared for it. It is
+	// how a topic is mapped to the page Google already ranks.
+	QueryPages(ctx context.Context, orgID string, queries []string, from, to time.Time) ([]QueryPage, error)
 	// SearchDetailImpressions returns detail-row impressions per day, for reconciliation.
 	SearchDetailImpressions(ctx context.Context, orgID string, from, to time.Time) (map[string]int64, error)
 	// LandingTop returns the top landing pages by sessions for [from, to].
 	LandingTop(ctx context.Context, orgID string, from, to time.Time, limit int) ([]Rollup, error)
 	// DeleteTenant removes all of a tenant's raw facts.
 	DeleteTenant(ctx context.Context, orgID string) error
+}
+
+// QueryPage is one query and one page that appeared for it.
+type QueryPage struct {
+	Query       string
+	Page        string
+	Clicks      int64
+	Impressions int64
 }
 
 // MonthBounds returns the first and last day of t's month.

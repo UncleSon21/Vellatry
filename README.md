@@ -44,7 +44,17 @@ blindspot into a fix whose outcome is measured.
   (Gotenberg); a private hub for the CMO with emailed one-time sign-in links limited
   to the company's domains, every view logged; recipients get a link, never an
   attachment.
-- Next: M5 keyword research, M6 agent, the dashboard UI.
+- **M5 Topics and keyword research:** backend done, and it makes no LLM call at all.
+  Seeds (Search Console positions 11-30, the team's topics, anything they paste) are
+  expanded with DataForSEO Labs, the competitors' ranking keywords fill the gap, and
+  each keyword's top ten results are fetched on the standard queue. Keywords that share
+  four of those results become one topic, named after its highest-volume keyword, with
+  intent from the results themselves. Each topic is mapped to the page Google already
+  ranks (else where the brand appears, else the closest page on the site), scored for
+  opportunity with every component visible, and flagged when it has no page, the page
+  answers a different need, or two of the brand's own pages compete. New topics are
+  proposed; approving one is what starts Vellatry measuring it.
+- Next: M6 agent, the dashboard UI.
 
 | Spike | Question | State |
 | --- | --- | --- |

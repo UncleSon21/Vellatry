@@ -67,7 +67,8 @@ func (s *Server) Handler() http.Handler {
 	authed.HandleFunc("GET /v1/settings", s.getSettings)
 	authed.HandleFunc("PUT /v1/settings", s.putSettings)
 
-	authed.HandleFunc("GET /v1/topics", s.listTopics)
+	authed.HandleFunc("GET /v1/topics", s.listTopicsDetail)
+	authed.HandleFunc("GET /v1/topics/{id}", s.getTopic)
 	authed.HandleFunc("POST /v1/topics", s.addTopic)
 	authed.HandleFunc("PATCH /v1/topics/{id}", s.patchTopic)
 
@@ -116,6 +117,11 @@ func (s *Server) Handler() http.Handler {
 	authed.HandleFunc("PATCH /v1/watchers/{id}", s.patchWatcher)
 	authed.HandleFunc("DELETE /v1/watchers/{id}", s.deleteWatcher)
 	authed.HandleFunc("GET /v1/notifications", s.listNotifications)
+
+	authed.HandleFunc("POST /v1/keywords/runs", s.requestResearch)
+	authed.HandleFunc("GET /v1/keywords/runs", s.listResearchRuns)
+	authed.HandleFunc("GET /v1/keywords", s.listKeywords)
+	authed.HandleFunc("PATCH /v1/keywords/{keyword}", s.patchKeyword)
 
 	authed.HandleFunc("GET /v1/report-series", s.listSeries)
 	authed.HandleFunc("POST /v1/report-series", s.addSeries)

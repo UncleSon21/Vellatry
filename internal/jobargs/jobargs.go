@@ -245,3 +245,33 @@ func (HubLoginEmail) Kind() string { return "hub_login_email" }
 
 // InsertOpts: a sign-in link is only useful for minutes.
 func (HubLoginEmail) InsertOpts() river.InsertOpts { return river.InsertOpts{MaxAttempts: 3} }
+
+// KeywordScheduleAll finds the tenants whose keyword research is due a refresh.
+type KeywordScheduleAll struct{}
+
+func (KeywordScheduleAll) Kind() string { return "keyword_schedule_all" }
+
+// KeywordRun expands seeds into keywords and queues their search results.
+type KeywordRun struct {
+	OrgID   string   `json:"org_id"`
+	Trigger string   `json:"trigger"` // manual | schedule | onboarding
+	Seeds   []string `json:"seeds,omitempty"`
+}
+
+func (KeywordRun) Kind() string { return "keyword_run" }
+
+// KeywordSERPCollect collects one keyword's search results.
+type KeywordSERPCollect struct {
+	OrgID  string `json:"org_id"`
+	TaskID int64  `json:"task_id"`
+}
+
+func (KeywordSERPCollect) Kind() string { return "keyword_serp_collect" }
+
+// KeywordCluster turns a run's search results into topics.
+type KeywordCluster struct {
+	OrgID string `json:"org_id"`
+	RunID int64  `json:"run_id"`
+}
+
+func (KeywordCluster) Kind() string { return "keyword_cluster" }
