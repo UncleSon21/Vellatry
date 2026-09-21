@@ -59,9 +59,13 @@ func (s *Server) Handler() http.Handler {
 	authed := http.NewServeMux()
 	authed.HandleFunc("GET /v1/me", s.me)
 	authed.HandleFunc("POST /v1/onboarding", s.onboarding)
+	authed.HandleFunc("GET /v1/onboarding", s.getOnboarding)
+	authed.HandleFunc("POST /v1/onboarding/complete", s.completeOnboarding)
 
 	authed.HandleFunc("GET /v1/brand", s.getBrand)
 	authed.HandleFunc("PUT /v1/brand", s.putBrand)
+	authed.HandleFunc("POST /v1/brand/test", s.testBrand)
+	authed.HandleFunc("GET /v1/brand/samples", s.brandSamples)
 	authed.HandleFunc("POST /v1/competitors", s.addCompetitor)
 	authed.HandleFunc("DELETE /v1/competitors/{id}", s.deleteCompetitor)
 

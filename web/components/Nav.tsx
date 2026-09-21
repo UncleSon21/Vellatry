@@ -38,6 +38,7 @@ const groups: { name: string; links: { href: string; label: string }[] }[] = [
   {
     name: 'Settings',
     links: [
+      { href: '/settings/brand', label: 'Brand' },
       { href: '/settings/connections', label: 'Connections' },
       { href: '/settings/account', label: 'Account' },
     ],

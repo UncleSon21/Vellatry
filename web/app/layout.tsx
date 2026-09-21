@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import { Nav } from '@/components/Nav'
-import { Ask } from '@/components/Agent'
+import { Shell } from '@/components/Shell'
 
 export const metadata: Metadata = {
   title: 'Vellatry',
@@ -13,11 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en-AU">
       <body>
-        <div className="shell">
-          <Nav />
-          <main className="main">{children}</main>
-        </div>
-        <Ask />
+        <Shell>{children}</Shell>
       </body>
     </html>
   )

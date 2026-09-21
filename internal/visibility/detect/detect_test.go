@@ -1,6 +1,9 @@
 package detect
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 var koala = Entity{
 	Name:       "Koala",
@@ -97,5 +100,50 @@ func TestHost(t *testing.T) {
 		if got := Host(in); got != want {
 			t.Errorf("Host(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestHighlight(t *testing.T) {
+	brand := Entity{Name: "Koala", Aliases: []string{"Koala Sleep"}, Exclusions: []string{"koala bear"}}
+	comps := []Entity{{Name: "Ecosa"}}
+	text := "Koala Sleep beats Ecosa. A koala bear is not a mattress, but Koala is."
+	segs := Highlight(text, brand, comps)
+
+	var joined string
+	var marked []string
+	for _, s := range segs {
+		joined += s.Text
+		switch {
+		case s.Excluded:
+			marked = append(marked, "x:"+s.Text)
+		case s.Entity != "":
+			marked = append(marked, s.Entity+":"+s.Text)
+		}
+	}
+	if joined != text {
+		t.Fatalf("segments do not rebuild the text:\n%q\n%q", joined, text)
+	}
+	want := []string{"Koala:Koala Sleep", "Ecosa:Ecosa", "x:koala bear", "Koala:Koala"}
+	if strings.Join(marked, "|") != strings.Join(want, "|") {
+		t.Errorf("marks = %v, want %v", marked, want)
+	}
+
+	// The preview must agree with what the engine counts.
+	r := Analyze(text, nil, brand, comps)
+	brandMarks := 0
+	for _, s := range segs {
+		if s.Brand && !s.Excluded {
+			brandMarks++
+		}
+	}
+	if brandMarks != r.Brand.Count {
+		t.Errorf("highlighted %d brand mentions, Analyze counted %d", brandMarks, r.Brand.Count)
+	}
+}
+
+func TestHighlightNoMentions(t *testing.T) {
+	segs := Highlight("Nothing to see here.", Entity{Name: "Koala"}, nil)
+	if len(segs) != 1 || segs[0].Entity != "" || segs[0].Text != "Nothing to see here." {
+		t.Errorf("segments = %+v", segs)
 	}
 }

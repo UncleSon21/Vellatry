@@ -73,13 +73,28 @@ func Analyze(text string, citations []string, brand Entity, competitors []Entity
 
 func count(lowered string, e Entity) Mention {
 	m := Mention{Entity: e.Name, First: -1}
+	for _, s := range matches(lowered, e) {
+		m.Count++
+		if m.First < 0 || s.start < m.First {
+			m.First = s.start
+		}
+	}
+	return m
+}
+
+type span struct{ start, end int }
+
+// matches finds an entity's whole-word mentions in lowered text after its exclusions
+// are masked out. count and Highlight share it, so a preview can never disagree with
+// what the engine records.
+func matches(lowered string, e Entity) []span {
 	masked := lowered
 	for _, ex := range e.Exclusions {
 		masked = mask(masked, strings.ToLower(ex))
 	}
-	terms := normalizedTerms(e)
 	covered := make([]bool, len(masked))
-	for _, term := range terms {
+	var out []span
+	for _, term := range normalizedTerms(e) {
 		for from := 0; ; {
 			i := strings.Index(masked[from:], term)
 			if i < 0 {
@@ -93,13 +108,94 @@ func count(lowered string, e Entity) Mention {
 			for k := start; k < end; k++ {
 				covered[k] = true
 			}
-			m.Count++
-			if m.First < 0 || start < m.First {
-				m.First = start
+			out = append(out, span{start, end})
+		}
+	}
+	return out
+}
+
+// excluded finds the whole-word lookalikes an entity's exclusions mask out.
+func excluded(lowered string, e Entity) []span {
+	var out []span
+	for _, ex := range e.Exclusions {
+		phrase := strings.ToLower(strings.TrimSpace(ex))
+		if phrase == "" {
+			continue
+		}
+		for from := 0; ; {
+			i := strings.Index(lowered[from:], phrase)
+			if i < 0 {
+				break
+			}
+			start, end := from+i, from+i+len(phrase)
+			from = end
+			if wholeWord(lowered, start, end) {
+				out = append(out, span{start, end})
 			}
 		}
 	}
-	return m
+	return out
+}
+
+// Segment is a run of answer text, marked when it is a mention or an excluded lookalike.
+type Segment struct {
+	Text     string `json:"text"`
+	Entity   string `json:"entity,omitempty"`
+	Brand    bool   `json:"brand,omitempty"`
+	Excluded bool   `json:"excluded,omitempty"` // a lookalike that deliberately does not count
+}
+
+// Highlight splits text into segments showing every mention of the brand and each
+// competitor, and every lookalike an exclusion stops from counting. It is how a customer
+// checks their setup against a real answer before any money is spent collecting them.
+func Highlight(text string, brand Entity, competitors []Entity) []Segment {
+	lowered := strings.ToLower(text)
+	source := text
+	if len(lowered) != len(text) {
+		// Lowercasing changed byte lengths (rare letters such as the Turkish dotted I), so
+		// offsets would not line up with the original: show the lowered text instead.
+		source = lowered
+	}
+	type mark struct {
+		span
+		entity         string
+		brand, exclude bool
+	}
+	var marks []mark
+	add := func(e Entity, isBrand bool) {
+		for _, s := range matches(lowered, e) {
+			marks = append(marks, mark{s, e.Name, isBrand, false})
+		}
+		for _, s := range excluded(lowered, e) {
+			marks = append(marks, mark{s, e.Name, isBrand, true})
+		}
+	}
+	add(brand, true)
+	for _, c := range competitors {
+		add(c, false)
+	}
+	sort.SliceStable(marks, func(i, j int) bool {
+		if marks[i].start != marks[j].start {
+			return marks[i].start < marks[j].start
+		}
+		return marks[i].end-marks[i].start > marks[j].end-marks[j].start
+	})
+	var out []Segment
+	at := 0
+	for _, m := range marks {
+		if m.start < at {
+			continue // overlaps an earlier, longer mark
+		}
+		if m.start > at {
+			out = append(out, Segment{Text: source[at:m.start]})
+		}
+		out = append(out, Segment{Text: source[m.start:m.end], Entity: m.entity, Brand: m.brand, Excluded: m.exclude})
+		at = m.end
+	}
+	if at < len(source) {
+		out = append(out, Segment{Text: source[at:]})
+	}
+	return out
 }
 
 // normalizedTerms returns name and aliases, lowered, deduplicated, longest first so

@@ -57,8 +57,13 @@ func (s *Server) listConnections(w http.ResponseWriter, r *http.Request) {
 type oauthState struct {
 	Org  string `json:"org"`
 	User string `json:"user"`
-	Kind string `json:"kind"` // google | asana: a state is only good for its own callback
+	Kind string `json:"kind"`           // google | asana: a state is only good for its own callback
+	Back string `json:"back,omitempty"` // a key of returnPages: where the browser lands afterwards
 }
+
+// returnPages are the dashboard pages a consent can return to. The start request names
+// one by key, never by URL, so a callback cannot be turned into an open redirect.
+var returnPages = map[string]string{"": "/settings/connections", "onboarding": "/onboarding"}
 
 var connectionLabel = map[string]string{"google": "Google", "asana": "Asana"}
 
@@ -89,7 +94,12 @@ func (s *Server) startOAuth(kind string) http.HandlerFunc {
 			s.fail(w, r, forbidden("Finish setting up your organisation first."))
 			return
 		}
-		state, err := s.Box.Sign(oauthState{Org: sess.OrgID, User: sess.UserID, Kind: kind}, 15*time.Minute, time.Now())
+		back := r.URL.Query().Get("return")
+		if _, ok := returnPages[back]; !ok {
+			s.fail(w, r, badRequest("Unknown return page."))
+			return
+		}
+		state, err := s.Box.Sign(oauthState{Org: sess.OrgID, User: sess.UserID, Kind: kind, Back: back}, 15*time.Minute, time.Now())
 		if err != nil {
 			s.fail(w, r, err)
 			return
@@ -108,8 +118,9 @@ func (s *Server) startOAuth(kind string) http.HandlerFunc {
 // over the event stream.
 func (s *Server) oauthCallback(kind string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		page := returnPages[""]
 		back := func(result string) {
-			http.Redirect(w, r, s.AppURL+"/settings/connections?"+kind+"="+url.QueryEscape(result), http.StatusFound)
+			http.Redirect(w, r, s.AppURL+page+"?"+kind+"="+url.QueryEscape(result), http.StatusFound)
 		}
 		if s.oauthConfig(kind) == nil || s.Box == nil {
 			back("unavailable")
@@ -119,6 +130,9 @@ func (s *Server) oauthCallback(kind string) http.HandlerFunc {
 		if err := s.Box.Verify(r.URL.Query().Get("state"), &st, time.Now()); err != nil || st.Kind != kind {
 			back("expired")
 			return
+		}
+		if p, ok := returnPages[st.Back]; ok {
+			page = p
 		}
 		if r.URL.Query().Get("error") != "" {
 			back("cancelled")

@@ -15,9 +15,45 @@ import (
 
 // JSONLD is one structured-data block.
 type JSONLD struct {
-	Types []string `json:"types"`
-	Valid bool     `json:"valid"`
-	Error string   `json:"error,omitempty"`
+	Types []string      `json:"types"`
+	Valid bool          `json:"valid"`
+	Error string        `json:"error,omitempty"`
+	Org   *Organization `json:"org,omitempty"` // the first organisation the block describes
+}
+
+// Organization is what a site's own structured data says about who runs it. It is the
+// source of brand suggestions: names the site already calls itself.
+type Organization struct {
+	Name       string   `json:"name,omitempty"`
+	LegalName  string   `json:"legal_name,omitempty"`
+	Alternates []string `json:"alternates,omitempty"`
+	SameAs     []string `json:"same_as,omitempty"`
+}
+
+var orgTypes = map[string]bool{
+	"Organization": true, "Corporation": true, "LocalBusiness": true, "OnlineStore": true, "OnlineBusiness": true,
+	"Store": true, "Brand": true, "NGO": true, "EducationalOrganization": true, "MedicalOrganization": true,
+	"ProfessionalService": true, "FinancialService": true, "Restaurant": true, "HealthAndBeautyBusiness": true,
+}
+
+func isOrgType(t string) bool {
+	return orgTypes[t] || strings.HasSuffix(t, "Business") || strings.HasSuffix(t, "Store")
+}
+
+func stringsOf(v any) []string {
+	switch x := v.(type) {
+	case string:
+		if s := clean(x); s != "" {
+			return []string{s}
+		}
+	case []any:
+		var out []string
+		for _, e := range x {
+			out = append(out, stringsOf(e)...)
+		}
+		return out
+	}
+	return nil
 }
 
 // Page is what the audit knows about one fetched URL.
@@ -41,6 +77,7 @@ type Page struct {
 	ImagesNoAlt     []string          `json:"images_no_alt"` // src of up to 20 images without an alt attribute
 	ImagesNoAltN    int               `json:"images_no_alt_n"`
 	JSONLD          []JSONLD          `json:"json_ld"`
+	Nav             []string          `json:"nav,omitempty"` // link text inside <nav> and <header>: the site's own sections
 	OpenGraph       map[string]string `json:"open_graph"`
 	Links           []string          `json:"-"` // absolute same-site links, for crawling
 	fetchErr        error             // why a status-0 page could not be fetched
@@ -59,10 +96,13 @@ func ParseHTML(p *Page, base *url.URL, body []byte) {
 	var text strings.Builder
 	seenLinks := map[string]bool{}
 
-	var walk func(n *html.Node, skipText bool)
-	walk = func(n *html.Node, skipText bool) {
+	seenNav := map[string]bool{}
+	var walk func(n *html.Node, skipText, inNav bool)
+	walk = func(n *html.Node, skipText, inNav bool) {
 		if n.Type == html.ElementNode {
 			switch n.DataAtom {
+			case atom.Nav, atom.Header:
+				inNav = true
 			case atom.Html:
 				p.Lang = attr(n, "lang")
 			case atom.Title:
@@ -114,6 +154,12 @@ func ParseHTML(p *Page, base *url.URL, body []byte) {
 					seenLinks[u] = true
 					p.Links = append(p.Links, u)
 				}
+				if inNav && len(p.Nav) < 60 {
+					if label := clean(textOf(n)); len(label) >= 2 && len(label) <= 40 && !seenNav[strings.ToLower(label)] {
+						seenNav[strings.ToLower(label)] = true
+						p.Nav = append(p.Nav, label)
+					}
+				}
 			case atom.Script:
 				if strings.EqualFold(attr(n, "type"), "application/ld+json") {
 					p.JSONLD = append(p.JSONLD, parseJSONLD(textOf(n)))
@@ -130,10 +176,10 @@ func ParseHTML(p *Page, base *url.URL, body []byte) {
 			text.WriteByte(' ')
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			walk(c, skipText)
+			walk(c, skipText, inNav)
 		}
 	}
-	walk(doc, false)
+	walk(doc, false, false)
 
 	visible := strings.Join(strings.Fields(text.String()), " ")
 	p.WordCount = countWords(visible)
@@ -151,13 +197,29 @@ func parseJSONLD(raw string) JSONLD {
 	collect = func(v any) {
 		switch x := v.(type) {
 		case map[string]any:
+			var types []string
 			switch t := x["@type"].(type) {
 			case string:
-				out.Types = append(out.Types, t)
+				types = append(types, t)
 			case []any:
 				for _, s := range t {
 					if s, ok := s.(string); ok {
-						out.Types = append(out.Types, s)
+						types = append(types, s)
+					}
+				}
+			}
+			out.Types = append(out.Types, types...)
+			for _, t := range types {
+				if out.Org == nil && isOrgType(t) {
+					o := &Organization{Alternates: stringsOf(x["alternateName"]), SameAs: stringsOf(x["sameAs"])}
+					if names := stringsOf(x["name"]); len(names) > 0 {
+						o.Name = names[0]
+					}
+					if legal := stringsOf(x["legalName"]); len(legal) > 0 {
+						o.LegalName = legal[0]
+					}
+					if o.Name != "" || o.LegalName != "" || len(o.Alternates) > 0 {
+						out.Org = o
 					}
 				}
 			}

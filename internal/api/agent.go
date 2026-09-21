@@ -216,6 +216,9 @@ func (s *Server) agentAction(w http.ResponseWriter, r *http.Request) {
 			if tag.RowsAffected() == 0 {
 				return notFound("No proposed topic with that id.")
 			}
+			if _, err := promptsForTopic(ctx, tx, id); err != nil {
+				return err
+			}
 			done = "The topic is approved; Vellatry will start measuring it."
 			_, err = s.Bus.Emit(ctx, tx, org, events.Event{Kind: domainevents.TopicAdded, SubjectID: id, Actor: user})
 			return err

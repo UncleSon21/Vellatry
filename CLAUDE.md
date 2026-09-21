@@ -49,6 +49,12 @@ Key decisions in short form: `docs/decisions.md`.
   domain, a page URL) goes through `site.PublicOnlyClient`, which refuses private,
   loopback, link-local and reserved addresses at connect time. Never fetch one with
   `http.DefaultClient`.
+- **Suggestions never overwrite people.** Anything Vellatry infers for the setup (from the
+  site today, from research later) goes through `brand.Apply(..., brand.BySuggested)` or
+  arrives as a `proposed` topic. Only a person's action makes it theirs.
+- **Active topics have prompts.** Any path that makes a topic active calls
+  `promptsForTopic` (`internal/api/onboarding.go`); a topic without prompts is measured
+  by nothing.
 - Do not copy code, prompts or data from any previous employer's system.
 
 ## How the rules are enforced

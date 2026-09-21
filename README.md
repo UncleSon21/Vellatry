@@ -61,9 +61,17 @@ blindspot into a fix whose outcome is measured.
   analysis from the catalogue and put its numbers into sentences; any figure that is not
   in the evidence is dropped and the code's own wording is shown instead. Actions are
   proposals until someone confirms them.
+- **Onboarding:** a six-step setup wizard (brand, what you sell, why you, competitors,
+  connections, blindspots setup) that resumes where the team left off. The first step
+  creates the organisation and reads the site straight away; its own structured data
+  and navigation pre-fill other names for the brand and propose starter topics, which
+  never overwrite anything a person entered. "Test my setup" highlights what detection
+  would count in a real AI answer or pasted text, using the same matcher detection
+  uses, on edits that are not saved yet. Finishing (at least one tracked topic) starts
+  keyword research. Settings → Brand edits the same setup afterwards.
 - **Dashboard (`web/`):** Next.js, no UI framework and no chart library. Overview,
   Performance, Blindspots, Sources, Search, Topics, Site, Fixes, Reports, Automations
-  and Connections, each reading the api and nothing else, following the event stream
+  Brand and Connections, each reading the api and nothing else, following the event stream
   instead of polling. The agent is a panel on every page and sends the page and its
   date range with the question.
 - Next: M7 (notebook and the CMO report bot), and the first design partner.

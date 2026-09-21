@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -191,6 +193,9 @@ func (w *siteCrawlWorker) Work(ctx context.Context, job *river.Job[jobargs.SiteC
 			return err
 		}
 		summary.Opened, summary.Resolved, summary.FixesLive = len(changes.Opened), len(changes.Resolved), live
+		if err := suggestFromSite(ctx, tx, s.Bus, b, res.Pages[0]); err != nil {
+			return err
+		}
 		if err := site.FinishCrawl(ctx, tx, crawlID, len(res.Pages), summary, nil); err != nil {
 			return err
 		}
@@ -212,5 +217,52 @@ func (w *siteCrawlWorker) Work(ctx context.Context, job *river.Job[jobargs.SiteC
 }
 
 var errCrawlRunning = errors.New("a crawl is already running")
+
+// suggestFromSite pre-fills setup from what the home page says about itself, while the
+// team is still in the setup wizard. Afterwards the setup is theirs and the weekly
+// crawl leaves it alone. Aliases merge in as suggestions (never over a list a person
+// edited) and topics arrive proposed, so nothing is measured until someone approves it.
+func suggestFromSite(ctx context.Context, tx pgx.Tx, bus *events.Bus, b brand.Brand, home site.Page) error {
+	var onboarding bool
+	if err := tx.QueryRow(ctx, `SELECT onboarded_at IS NULL FROM org_settings`).Scan(&onboarding); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	if !onboarding {
+		return nil
+	}
+	sug := site.Suggest(home, b.Name)
+	var out domainevents.BrandSuggestedPayload
+	if len(sug.Aliases) > 0 {
+		merged := append(slices.Clone(b.Aliases), sug.Aliases...)
+		nb, changed := brand.Apply(b, brand.Patch{Aliases: &merged}, brand.BySuggested)
+		if len(changed) > 0 {
+			if err := brand.Save(ctx, tx, nb); err != nil {
+				return err
+			}
+			for _, a := range nb.Aliases {
+				if !slices.ContainsFunc(b.Aliases, func(x string) bool { return strings.EqualFold(x, a) }) {
+					out.Aliases = append(out.Aliases, a)
+				}
+			}
+		}
+	}
+	for _, t := range sug.Topics {
+		tag, err := tx.Exec(ctx,
+			`INSERT INTO topics (org_id, brand_id, name, source, status) VALUES ($1, $2, $3, 'site', 'proposed')
+			 ON CONFLICT (org_id, lower(name)) DO NOTHING`, b.OrgID, b.ID, t)
+		if err != nil {
+			return err
+		}
+		out.Topics += int(tag.RowsAffected())
+	}
+	if len(out.Aliases) == 0 && out.Topics == 0 {
+		return nil
+	}
+	_, err := bus.Emit(ctx, tx, b.OrgID, events.Event{Kind: domainevents.BrandSuggested, SubjectID: b.ID, Actor: "crawler", Payload: out})
+	return err
+}
 
 func itoa64(n int64) string { return strconv.FormatInt(n, 10) }

@@ -5,6 +5,7 @@ package domainevents
 
 import (
 	"encoding/json"
+	"slices"
 
 	"github.com/riverqueue/river"
 
@@ -60,6 +61,8 @@ const (
 	KeywordRunStarted    = "keywords.run_started"
 	KeywordRunCompleted  = "keywords.run_completed"
 	AgentQuestionAsked   = "agent.question_asked"
+	BrandSuggested       = "brand.suggested"      // the first crawl pre-filled aliases and proposed topics
+	OnboardingCompleted  = "onboarding.completed" // the team finished the setup wizard
 	AgentAnswered        = "agent.answered"
 	HubSignedIn          = "hub.signed_in"
 )
@@ -72,6 +75,12 @@ type ReportPayload struct {
 	End      string `json:"end,omitempty"`
 	Version  int    `json:"version,omitempty"`
 	Notify   bool   `json:"notify,omitempty"` // email the recipients
+}
+
+// BrandSuggestedPayload is the payload of BrandSuggested.
+type BrandSuggestedPayload struct {
+	Aliases []string `json:"aliases,omitempty"` // added to the brand
+	Topics  int      `json:"topics"`            // proposed for the team to approve
 }
 
 // SiteCrawlCompletedPayload is the payload of SiteCrawlCompleted.
@@ -131,7 +140,7 @@ func Subscriptions() []events.Subscription {
 		},
 		{
 			Name:  "plan-after-setup-change",
-			Kinds: []string{OrgOnboarded, TopicAdded},
+			Kinds: []string{OrgOnboarded, TopicAdded, OnboardingCompleted},
 			Job: func(s events.Stored) river.JobArgs {
 				return jobargs.VisibilityPlanOrg{OrgID: s.OrgID} // start discovery now, not at the next quarter hour
 			},
@@ -147,6 +156,21 @@ func Subscriptions() []events.Subscription {
 			Name:  "first-crawl",
 			Kinds: []string{OrgOnboarded},
 			Job:   func(s events.Stored) river.JobArgs { return jobargs.SiteCrawl{OrgID: s.OrgID, Trigger: "onboarding"} },
+		},
+		{
+			// A new domain is a different site: read it now, which also refreshes the
+			// suggestions while the team is still in the setup wizard.
+			Name:  "crawl-after-domain-change",
+			Kinds: []string{BrandUpdated},
+			Job: func(s events.Stored) river.JobArgs {
+				var p struct {
+					Fields []string `json:"fields"`
+				}
+				if json.Unmarshal(s.Payload, &p) != nil || !slices.Contains(p.Fields, "domain") {
+					return nil
+				}
+				return jobargs.SiteCrawl{OrgID: s.OrgID, Trigger: "manual"}
+			},
 		},
 		{
 			Name:  "crawl-now",
@@ -316,7 +340,7 @@ func Subscriptions() []events.Subscription {
 		},
 		{
 			Name:  "first-keywords",
-			Kinds: []string{OrgOnboarded},
+			Kinds: []string{OnboardingCompleted},
 			Job:   func(s events.Stored) river.JobArgs { return jobargs.KeywordRun{OrgID: s.OrgID, Trigger: "onboarding"} },
 		},
 		{

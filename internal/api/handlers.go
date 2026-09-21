@@ -18,7 +18,6 @@ import (
 	"github.com/UncleSon21/vellatry/internal/domainevents"
 	"github.com/UncleSon21/vellatry/internal/platform/db"
 	"github.com/UncleSon21/vellatry/internal/platform/events"
-	"github.com/UncleSon21/vellatry/internal/visibility/promptgen"
 )
 
 // ---- me and onboarding -------------------------------------------------------------
@@ -399,16 +398,8 @@ func insertTopic(ctx context.Context, tx pgx.Tx, orgID, brandID string, in topic
 	if err != nil {
 		return t, err
 	}
-	for _, c := range promptgen.FromTopic(t.Name, location) {
-		tag, err := tx.Exec(ctx, `
-			INSERT INTO prompts (org_id, brand_id, topic_id, text, source, status) VALUES ($1, $2, $3, $4, $5, 'candidate')
-			ON CONFLICT DO NOTHING`, orgID, brandID, t.ID, c.Text, c.Source)
-		if err != nil {
-			return t, err
-		}
-		t.Prompts += int(tag.RowsAffected())
-	}
-	return t, nil
+	t.Prompts, err = insertPrompts(ctx, tx, orgID, brandID, t.ID, t.Name, location)
+	return t, err
 }
 
 func (s *Server) patchTopic(w http.ResponseWriter, r *http.Request) {
@@ -459,6 +450,9 @@ func (s *Server) patchTopic(w http.ResponseWriter, r *http.Request) {
 		// Approving a proposed topic is what starts Vellatry measuring it.
 		if was != "proposed" || in.Status == nil || *in.Status != "active" {
 			return nil
+		}
+		if _, err := promptsForTopic(ctx, tx, id); err != nil {
+			return err
 		}
 		_, err = s.Bus.Emit(ctx, tx, sessionFrom(ctx).OrgID, events.Event{Kind: domainevents.TopicAdded, SubjectID: id, Actor: sessionFrom(ctx).UserID})
 		return err
