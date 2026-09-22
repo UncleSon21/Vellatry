@@ -2,11 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { UserButton } from '@clerk/nextjs'
+import { clerkEnabled } from '@/lib/auth'
 
 const groups: { name: string; links: { href: string; label: string }[] }[] = [
   {
     name: 'Overview',
-    links: [{ href: '/', label: 'Today' }],
+    links: [{ href: '/today', label: 'Today' }],
   },
   {
     name: 'AI visibility',
@@ -49,7 +51,9 @@ export function Nav() {
   const path = usePathname()
   return (
     <nav className="side">
-      <div className="brandmark">Vellatry</div>
+      <Link href="/today" className="brandmark">
+        Vellatry
+      </Link>
       {groups.map((g) => (
         <div key={g.name}>
           <div className="navgroup">{g.name}</div>
@@ -60,6 +64,11 @@ export function Nav() {
           ))}
         </div>
       ))}
+      {clerkEnabled && (
+        <div className="sideuser">
+          <UserButton showName />
+        </div>
+      )}
     </nav>
   )
 }

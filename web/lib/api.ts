@@ -1,22 +1,27 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { clerkEnabled, sessionToken } from '@/lib/auth'
 
 // The dashboard reads the api and nothing else: no direct calls to Google, DataForSEO
 // or any model. Every page here is a view of something the backend already stored.
 export const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080'
 
-// Auth. In production this is a Clerk session token; locally the api trusts an email
-// header when VELLATRY_DEV_AUTH=1. Both end up as request headers, nothing else.
-export function authHeaders(): Record<string, string> {
+// Auth. In production this is a Clerk session token, fetched per request and never
+// stored; locally, without Clerk, the api trusts an email header when
+// VELLATRY_DEV_AUTH=1. Both end up as request headers, nothing else.
+export async function authHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = {}
-  if (typeof window !== 'undefined') {
-    const token = window.localStorage.getItem('vellatry.token')
-    if (token) headers['Authorization'] = `Bearer ${token}`
+  if (typeof window === 'undefined') return headers
+  const token = await sessionToken()
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  try {
     const devEmail = window.localStorage.getItem('vellatry.devEmail')
-    if (devEmail) headers['X-Dev-Email'] = devEmail
-    const org = window.localStorage.getItem('vellatry.org')
+    if (devEmail && !clerkEnabled) headers['X-Dev-Email'] = devEmail
+    const org = window.localStorage.getItem('vellatry.org') // which of the user's organisations to act on
     if (org) headers['X-Org-ID'] = org
+  } catch {
+    // storage blocked: the api picks the user's first organisation
   }
   return headers
 }
@@ -34,7 +39,7 @@ export class ApiError extends Error {
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API}${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers ?? {}) },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()), ...(init?.headers ?? {}) },
   })
   const text = await res.text()
   const body = text ? JSON.parse(text) : null

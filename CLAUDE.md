@@ -59,6 +59,11 @@ Key decisions in short form: `docs/decisions.md`.
 - **Active topics have prompts.** Any path that makes a topic active calls
   `promptsForTopic` (`internal/api/onboarding.go`); a topic without prompts is measured
   by nothing.
+- **Design.** Before designing, restyling or writing copy for anything in `web/`, load
+  the `vellatry-design` skill (`.claude/skills/vellatry-design/SKILL.md`). Marketing
+  copy describes shipped behaviour only, with no invented customers, figures or prices.
+- **Sign-in tokens are never stored.** `lib/auth.ts` fetches a Clerk token per request;
+  do not put a token in `localStorage`, a cookie of our own, or a URL.
 - Do not copy code, prompts or data from any previous employer's system.
 
 ## How the rules are enforced

@@ -69,6 +69,14 @@ blindspot into a fix whose outcome is measured.
   would count in a real AI answer or pasted text, using the same matcher detection
   uses, on edits that are not saved yet. Finishing (at least one tracked topic) starts
   keyword research. Settings → Brand edits the same setup afterwards.
+- **Landing page and sign-in:** `/` introduces the product: every claim describes
+  shipped behaviour, and the illustrations use no real brands or customer figures.
+  Sign-in and sign-up are Clerk, themed from the app's own tokens. The session token
+  is fetched per request and never stored. Without a Clerk key (local development),
+  Clerk is not loaded and the api's header sign-in is used. The app starts at `/today`.
+- **Design:** `.claude/skills/vellatry-design` holds the design language (tokens,
+  type, components, copy rules, the checks before a design is done), so every session
+  designs the same way.
 - **Dashboard (`web/`):** Next.js, no UI framework and no chart library. Overview,
   Performance, Blindspots, Sources, Search, Topics, Site, Fixes, Reports, Automations
   Brand and Connections, each reading the api and nothing else, following the event stream

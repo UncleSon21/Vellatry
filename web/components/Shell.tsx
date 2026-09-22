@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { api, ApiError } from '@/lib/api'
+import { signInPath } from '@/lib/auth'
 import { Nav } from '@/components/Nav'
 import { Ask } from '@/components/Agent'
 import { ErrorNote, Loading } from '@/components/ui'
@@ -10,11 +11,15 @@ import { ErrorNote, Loading } from '@/components/ui'
 // Pages that work before setup is finished: signing in, and the wizard itself.
 const openPaths = ['/settings/account']
 
-// Shell lays out every page. The setup wizard gets the whole screen; everything else
-// waits behind the gate until the organisation has finished setting up, because until
-// then there is nothing on those pages to see.
+// Pages outside the app: the landing page and sign-in own the whole screen.
+const outside = (path: string) => path === '/' || path.startsWith('/sign-in') || path.startsWith('/sign-up')
+
+// Shell lays out every page. The landing page and sign-in are outside the app; the
+// setup wizard gets the whole screen; everything else waits behind the gate until the
+// organisation has finished setting up, because until then there is nothing to see.
 export function Shell({ children }: { children: ReactNode }) {
   const path = usePathname()
+  if (outside(path)) return <>{children}</>
   if (path.startsWith('/onboarding')) return <main className="wizard">{children}</main>
   return (
     <>
@@ -44,7 +49,7 @@ function Gate({ children }: { children: ReactNode }) {
       .catch((e: Error) => {
         if (!live) return
         if (e instanceof ApiError && e.status === 401) {
-          router.replace('/settings/account')
+          router.replace(signInPath)
           return
         }
         setError(e.message)

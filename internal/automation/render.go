@@ -236,7 +236,7 @@ var digestSlack = texttemplate.Must(texttemplate.New("slack").Funcs(digestFuncs)
 {{end}}{{if .D.Broken}}
 *Needs reconnecting:* {{range $i, $b := .D.Broken}}{{if $i}}, {{end}}{{slack $b}}{{end}}. <{{.App}}/settings/connections|Fix it>
 {{end}}
-<{{.App}}|Open Vellatry>`))
+<{{.App}}/today|Open Vellatry>`))
 
 var digestText = texttemplate.Must(texttemplate.New("text").Funcs(digestFuncs).Parse(
 	`{{.D.Brand}} weekly, {{date .D.From}} to {{date .D.To}}
@@ -264,7 +264,7 @@ ALERTS
 {{end}}{{end}}{{if .D.Broken}}
 NEEDS RECONNECTING: {{range $i, $b := .D.Broken}}{{if $i}}, {{end}}{{$b}}{{end}}. {{.App}}/settings/connections
 {{end}}
-Open Vellatry: {{.App}}
+Open Vellatry: {{.App}}/today
 `))
 
 var digestHTML = htmltemplate.Must(htmltemplate.New("html").Funcs(digestFuncs).Parse(`<!doctype html>
@@ -304,7 +304,7 @@ var digestHTML = htmltemplate.Must(htmltemplate.New("html").Funcs(digestFuncs).P
 {{if .D.Broken}}<tr><td style="padding:16px 24px;border-top:1px solid #eaecf0;background:#fffaeb">
 <p style="margin:0;font-size:14px"><strong>Needs reconnecting:</strong> {{range $i, $b := .D.Broken}}{{if $i}}, {{end}}{{$b}}{{end}}. <a href="{{.App}}/settings/connections">Fix it</a></p>
 </td></tr>{{end}}
-<tr><td style="padding:16px 24px 24px;border-top:1px solid #eaecf0"><a href="{{.App}}" style="display:inline-block;background:#101828;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;font-size:14px">Open Vellatry</a></td></tr>
+<tr><td style="padding:16px 24px 24px;border-top:1px solid #eaecf0"><a href="{{.App}}/today" style="display:inline-block;background:#101828;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;font-size:14px">Open Vellatry</a></td></tr>
 </table>
 <p style="max-width:600px;margin:16px auto 0;font-size:12px;color:#98a2b3">The weekly digest goes to destinations with the digest switched on. Change it under Automations.</p>
 </body></html>`))

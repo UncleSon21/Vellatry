@@ -1,114 +1,296 @@
-'use client'
-
+import type { Metadata } from 'next'
 import Link from 'next/link'
-import { useApi, useEvents } from '@/lib/api'
-import { Card, ErrorNote, Empty, Loading, MetricTile, Pill, Table } from '@/components/ui'
-import { change, day, dec, num, pct, points, when } from '@/lib/format'
-import { dateRange } from '@/lib/format'
+import { display } from '@/lib/fonts'
+import s from './landing.module.css'
 
-type Metrics = { answers: number; visibility: number | null; share_of_voice: number | null; avg_position: number | null }
-type Performance = { overall: Metrics; by_engine: (Metrics & { engine: string })[] }
-type Blindspot = { id: number; engine: string; kind: string; prompt: string; confirmed: boolean; competitor: string | null; priority: { score: number } }
-type SiteSummary = { last_done: { finished_at: string | null; pages: number } | null; open_by_severity: Record<string, number>; fixes_by_status: Record<string, number> }
-type SearchOverview = { current: { clicks: number; impressions: number; ctr: number | null; position: number | null; days: number }; previous: { clicks: number; impressions: number; days: number } }
-type Notification = { id: number; kind: string; severity: string; title: string; body: string; link: string | null; last_seen_at: string }
+const title = 'Vellatry: AI visibility for Australian marketing teams'
+const description =
+  'See where ChatGPT, Gemini and Google AI Overviews leave your brand out, beside your own Search Console data. Fix each gap and show your CMO what changed.'
 
-export default function Overview() {
-  const { from, to } = dateRange(28)
-  const perf = useApi<Performance>(`/v1/visibility/performance?from=${from}&to=${to}`)
-  const prev = dateRange(56)
-  const perfBefore = useApi<Performance>(`/v1/visibility/performance?from=${prev.from}&to=${from}`)
-  const spots = useApi<Blindspot[]>('/v1/visibility/blindspots?status=open')
-  const site = useApi<SiteSummary>('/v1/site/summary')
-  const search = useApi<SearchOverview>(`/v1/search/overview?from=${from}&to=${to}`)
-  const notes = useApi<Notification[]>('/v1/notifications?limit=6')
+export const metadata: Metadata = {
+  title,
+  description,
+  robots: { index: true, follow: true },
+  alternates: { canonical: '/' },
+  openGraph: { title, description, type: 'website', locale: 'en_AU', siteName: 'Vellatry' },
+}
 
-  // The dashboard follows the backend rather than polling it.
-  useEvents((e) => {
-    if (e.kind.startsWith('visibility.')) {
-      perf.reload()
-      spots.reload()
-    }
-    if (e.kind.startsWith('site.') || e.kind.startsWith('fix.')) site.reload()
-    if (e.kind === 'notification.created') notes.reload()
-  })
-
-  const confirmed = (spots.data ?? []).filter((s) => s.confirmed)
-  const critical = site.data?.open_by_severity?.critical ?? 0
-
+// Every sentence here must be true of the product today, and the illustrations use no
+// real brands and no customer figures: see .claude/skills/vellatry-design.
+export default function Landing() {
   return (
-    <>
-      <div className="pagehead">
-        <div>
-          <h1>Today</h1>
-          <p className="sub">Where you stand in AI answers and in Google Search, and what is waiting for someone.</p>
+    <div className={`${s.page} ${display.variable}`}>
+      <a href="#main" className={s.skip}>
+        Skip to content
+      </a>
+      <header className={s.header}>
+        <div className={s.bar}>
+          <Link href="/" className={s.wordmark}>
+            Vellatry
+          </Link>
+          <nav className={s.links} aria-label="Sections">
+            <a href="#how">How it works</a>
+            <a href="#features">What it does</a>
+            <a href="#cmo">For your CMO</a>
+          </nav>
+          <div className={s.actions}>
+            <Link href="/sign-in" className={s.quiet}>
+              Sign in
+            </Link>
+            <Link href="/sign-up" className={s.primary}>
+              Get started
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <main id="main">
+        <section className={s.hero}>
+          <div className={s.heroText}>
+            <p className={s.eyebrow}>AI visibility for Australian marketing teams</p>
+            <h1 className={s.display}>
+              Find your AI blindspots. Fix them. <em>Prove it</em> to your CMO.
+            </h1>
+            <p className={s.lead}>
+              Your customers ask ChatGPT, Gemini and Google&apos;s AI Overviews what to buy. Vellatry shows where those answers leave your brand
+              out, beside your own Search Console data, and turns each gap into a fix it can measure.
+            </p>
+            <div className={s.ctas}>
+              <Link href="/sign-up" className={s.primary}>
+                Get started
+              </Link>
+              <a href="#how" className={s.secondary}>
+                See how it works
+              </a>
+            </div>
+            <p className={s.note}>Setup takes about five minutes. Vellatry reads your site and suggests the rest.</p>
+          </div>
+          <AnswerIllustration />
+        </section>
+
+        <section className={s.band}>
+          <div className={s.narrow}>
+            <h2 className={s.h2}>When AI recommends three brands and yours isn&apos;t one, nothing you use today tells you.</h2>
+            <p className={s.body}>
+              Search Console shows the clicks you got. It doesn&apos;t show the answer that named a competitor instead, or which pages the engine
+              trusted when it did. Vellatry asks the engines the questions your customers ask, every day, and records who they recommend and what
+              they cite.
+            </p>
+          </div>
+        </section>
+
+        <section id="how" className={s.section} aria-labelledby="how-title">
+          <div className={s.sectionHead}>
+            <p className={s.eyebrow}>How it works</p>
+            <h2 id="how-title" className={s.h2}>
+              From a missing mention to a measured fix
+            </h2>
+          </div>
+          <ol className={s.steps}>
+            <li>
+              <span className={s.stepNo}>1</span>
+              <h3>Measure</h3>
+              <p>
+                Vellatry turns your topics into the questions buyers ask, puts them to ChatGPT, Gemini and AI Overviews, and counts every mention
+                of you and your competitors. The counting is code, not a model&apos;s guess.
+              </p>
+            </li>
+            <li>
+              <span className={s.stepNo}>2</span>
+              <h3>Find the blindspots</h3>
+              <p>
+                Where a competitor is named and you aren&apos;t, Vellatry opens a blindspot with the answers, the sources the engine cited, and the
+                search demand behind the topic.
+              </p>
+            </li>
+            <li>
+              <span className={s.stepNo}>3</span>
+              <h3>Fix</h3>
+              <p>
+                Site issues come with copy-ready fixes: robots.txt lines for AI crawlers, llms.txt, structured data, page changes. Send a fix or a
+                blindspot to Asana in one click.
+              </p>
+            </li>
+            <li>
+              <span className={s.stepNo}>4</span>
+              <h3>Prove it</h3>
+              <p>
+                The next crawl confirms a fix is live, and visibility and search clicks are tracked before and after. The report your CMO reads is
+                built from the same data.
+              </p>
+            </li>
+          </ol>
+        </section>
+
+        <section id="features" className={s.alt} aria-labelledby="features-title">
+          <div className={s.section}>
+          <div className={s.sectionHead}>
+            <p className={s.eyebrow}>What it does</p>
+            <h2 id="features-title" className={s.h2}>
+              One place for how AI and search see you
+            </h2>
+          </div>
+          <ul className={s.features}>
+            <li>
+              <h3>Three AI engines, one view</h3>
+              <p>ChatGPT, Gemini and Google AI Overviews, checked every day for Australian buyers, within a daily budget you set.</p>
+            </li>
+            <li>
+              <h3>Beside your search data</h3>
+              <p>Search Console and Google Analytics, read-only, including the visits AI assistants already send you.</p>
+            </li>
+            <li>
+              <h3>A site AI can read</h3>
+              <p>Weekly crawls find what stops AI crawlers and answer engines using your pages, and confirm when each fix is live.</p>
+            </li>
+            <li>
+              <h3>Topics from real demand</h3>
+              <p>Keyword research groups searches by the results Google shows for them. Approve a topic and Vellatry starts measuring it.</p>
+            </li>
+            <li>
+              <h3>Alerts where you work</h3>
+              <p>Slack and email when visibility drops or a competitor overtakes you, a weekly digest, and Asana tasks that close when the work is done.</p>
+            </li>
+            <li>
+              <h3>Answers you can check</h3>
+              <p>Ask a question in plain English. The answer is computed from your data, and a figure the evidence doesn&apos;t hold is never shown.</p>
+            </li>
+          </ul>
+          </div>
+        </section>
+
+        <section id="cmo" className={s.section} aria-labelledby="cmo-title">
+          <div className={s.split}>
+            <div>
+              <p className={s.eyebrow}>For your CMO</p>
+              <h2 id="cmo-title" className={s.h2}>
+                A report they will actually open
+              </h2>
+              <ul className={s.ticks}>
+                <li>Monthly, quarterly or by financial year, drafted once the period&apos;s data has settled.</li>
+                <li>A private hub: your CMO signs in with a link sent to their work email, and every view is logged.</li>
+                <li>Published reports never change underneath them. A revision is a new version.</li>
+                <li>A link in their inbox, never an attachment. A PDF is there when they want one.</li>
+              </ul>
+            </div>
+            <ReportIllustration />
+          </div>
+        </section>
+
+        <section className={s.dark} aria-labelledby="principles-title">
+          <div className={s.section}>
+          <div className={s.sectionHead}>
+            <h2 id="principles-title" className={`${s.h2} ${s.onDark}`}>
+              Numbers you can defend
+            </h2>
+          </div>
+          <ul className={s.principles}>
+            <li>
+              <h3>Code counts, models write</h3>
+              <p>Every mention, score and position is computed by code with its method recorded. A model may word a summary. It never supplies a number.</p>
+            </li>
+            <li>
+              <h3>Read-only by default</h3>
+              <p>Vellatry reads your Google data and never changes your accounts. Asana is the one place it writes, and only when you ask it to.</p>
+            </li>
+            <li>
+              <h3>Built for Australia</h3>
+              <p>Australian locations in every check, the financial year in every report, and your search and visibility data stored in Sydney.</p>
+            </li>
+          </ul>
+          </div>
+        </section>
+
+        <section className={s.final}>
+          <h2 className={s.display}>See where AI leaves you out.</h2>
+          <p className={s.lead}>Set up your brand, topics and competitors, and Vellatry starts checking straight away.</p>
+          <div className={s.ctas}>
+            <Link href="/sign-up" className={s.primary}>
+              Get started
+            </Link>
+            <Link href="/sign-in" className={s.secondary}>
+              Sign in
+            </Link>
+          </div>
+        </section>
+      </main>
+
+      <footer className={s.footer}>
+        <span className={s.wordmark}>Vellatry</span>
+        <span>© {new Date().getFullYear()} Vellatry</span>
+      </footer>
+    </div>
+  )
+}
+
+// An AI answer as Vellatry shows it: every mention highlighted, and your brand's
+// absence stated plainly. Built from the product's own highlight colours.
+function AnswerIllustration() {
+  return (
+    <figure className={s.figure}>
+      <div className={s.mock} aria-label="Illustration of an AI answer that names three competitors and not your brand">
+        <div className={s.mockHead}>
+          <span className={s.chip}>ChatGPT</span>
+          <span className={s.muted}>Checked today · 5 answers</span>
+        </div>
+        <p className={s.question}>Which Australian mattress brands have the longest trial?</p>
+        <p className={s.answer}>
+          For the longest trial, <mark className={s.comp}>Competitor A</mark> offers 120 nights with free returns.{' '}
+          <mark className={s.comp}>Competitor B</mark> is often recommended for its warranty, and <mark className={s.comp}>Competitor C</mark> for
+          value.
+        </p>
+        <div className={s.verdict}>
+          <span className={s.bad}>Your brand: not mentioned in 4 of 5 answers</span>
+          <span className={s.muted}>Competitor A named in 5 of 5</span>
         </div>
       </div>
-
-      <ErrorNote error={perf.error} />
-      {perf.loading && <Loading what="Reading your data" />}
-
-      <div className="tiles">
-        <MetricTile
-          label="AI visibility"
-          value={pct(perf.data?.overall.visibility)}
-          current={perf.data?.overall.visibility ?? null}
-          previous={perfBefore.data?.overall.visibility ?? null}
-          change={points(perf.data?.overall.visibility, perfBefore.data?.overall.visibility)}
-        />
-        <MetricTile label="Share of voice" value={pct(perf.data?.overall.share_of_voice)} />
-        <MetricTile
-          label="Search clicks"
-          value={num(search.data?.current.clicks)}
-          current={search.data?.current.clicks}
-          previous={search.data?.previous.clicks}
-          change={search.data ? change(search.data.current.clicks, search.data.previous.clicks) : ''}
-        />
-        <MetricTile label="Blindspots confirmed" value={num(confirmed.length)} current={confirmed.length} previous={0} higherIsBetter={false} />
-        <MetricTile label="Critical site issues" value={num(critical)} current={critical} previous={0} higherIsBetter={false} />
-      </div>
-
-      <Card title="Blindspots to close" sub="Questions where an engine leaves you out, or names a competitor first." actions={<Link className="btn" href="/visibility/blindspots">All blindspots</Link>}>
-        <Table
-          head={['Question', 'Engine', 'What happens', 'Priority']}
-          empty="No confirmed blindspots. Vellatry keeps asking."
-          rows={confirmed.slice(0, 5).map((s) => [
-            s.prompt,
-            <span key="e" className="muted">{s.engine}</span>,
-            s.kind === 'displacement' && s.competitor ? `${s.competitor} recommended instead` : 'leaves you out',
-            dec(s.priority?.score, 1),
-          ])}
-        />
-      </Card>
-
-      <Card title="What changed" sub="Alerts and the things Vellatry noticed for you." actions={<Link className="btn" href="/automations">Automations</Link>}>
-        {notes.loading ? (
-          <Loading />
-        ) : (notes.data ?? []).length === 0 ? (
-          <Empty>Nothing yet. Alerts appear here as watchers fire.</Empty>
-        ) : (
-          <Table
-            head={['What', 'When']}
-            rows={(notes.data ?? []).map((n) => [
-              <span key="t">
-                <Pill tone={n.severity === 'critical' ? 'bad' : n.severity === 'warning' ? 'warn' : undefined}>{n.severity}</Pill>{' '}
-                {n.link ? <Link href={n.link}>{n.title}</Link> : n.title}
-                <div className="muted" style={{ fontSize: 13 }}>{n.body}</div>
-              </span>,
-              when(n.last_seen_at),
-            ])}
-          />
-        )}
-      </Card>
-
-      <Card title="Site" sub={site.data?.last_done?.finished_at ? `Last crawled ${day(site.data.last_done.finished_at)}, ${num(site.data.last_done.pages)} pages.` : 'Not crawled yet.'} actions={<Link className="btn" href="/site">Site</Link>}>
-        <div className="row">
-          <Pill tone={critical > 0 ? 'bad' : 'good'}>{num(critical)} critical</Pill>
-          <Pill tone="warn">{num(site.data?.open_by_severity?.warning ?? 0)} warnings</Pill>
-          <Pill>{num(site.data?.fixes_by_status?.proposed ?? 0)} fixes waiting</Pill>
-          <Pill tone="good">{num(site.data?.fixes_by_status?.live ?? 0)} fixes live</Pill>
+      <div className={`${s.mock} ${s.fix}`} aria-label="Illustration of a fix confirmed live">
+        <div className={s.mockHead}>
+          <strong>Fix</strong>
+          <span className={s.muted}>robots.txt</span>
+          <span className={s.good}>Live</span>
         </div>
-      </Card>
-    </>
+        <pre className={s.code}>{'User-agent: OAI-SearchBot\nAllow: /'}</pre>
+        <p className={s.muted}>Confirmed by the next crawl.</p>
+      </div>
+      <figcaption className={s.caption}>Illustration. Brands and figures are examples.</figcaption>
+    </figure>
+  )
+}
+
+function ReportIllustration() {
+  const points = [22, 24, 23, 27, 30, 29, 34, 38]
+  const lo = Math.min(...points)
+  const hi = Math.max(...points)
+  const line = points.map((p, i) => `${(i * 100) / (points.length - 1)},${38 - ((p - lo) / (hi - lo)) * 32}`).join(' ')
+  return (
+    <figure className={s.figure}>
+      <div className={s.mock} aria-label="Illustration of a CMO report with an AI visibility trend">
+        <div className={s.mockHead}>
+          <strong>AI visibility report</strong>
+          <span className={s.muted}>Q1 FY2027</span>
+        </div>
+        <div className={s.tiles}>
+          <div>
+            <span className={s.muted}>Mentioned in</span>
+            <strong>38% of answers</strong>
+            <span className={s.goodText}>up 16 pts</span>
+          </div>
+          <div>
+            <span className={s.muted}>Blindspots closed</span>
+            <strong>7</strong>
+            <span className={s.muted}>of 12 opened</span>
+          </div>
+        </div>
+        <svg viewBox="0 0 100 42" preserveAspectRatio="none" className={s.spark} aria-hidden="true">
+          <line x1="0" y1="40" x2="100" y2="40" stroke="var(--line)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          <polyline points={line} fill="none" stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+        </svg>
+        <p className={s.summary}>
+          Visibility rose after the site allowed AI crawlers in week 3. The largest gap left is warranty questions, where Competitor B is named first.
+        </p>
+      </div>
+      <figcaption className={s.caption}>Illustration. Figures are examples.</figcaption>
+    </figure>
   )
 }

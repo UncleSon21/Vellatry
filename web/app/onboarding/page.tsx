@@ -59,7 +59,7 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (!s || step !== null) return
     if (s.completed) {
-      router.replace('/')
+      router.replace('/today')
       return
     }
     if (!s.org) {
@@ -331,7 +331,7 @@ function BlindspotsStep({ status, refresh, onBack }: { status: Status; refresh: 
         await api('/v1/settings', { method: 'PUT', body: JSON.stringify({ engines }) })
       }
       await api('/v1/onboarding/complete', { method: 'POST' })
-      router.replace('/')
+      router.replace('/today')
     } catch (e) {
       setError((e as Error).message)
       setBusy(false)

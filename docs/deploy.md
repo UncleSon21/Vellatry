@@ -51,13 +51,38 @@ plan covers a compute running around the clock.
 
 ## 2. Sign-in (Clerk)
 
-The api will not start without a sign-in provider in production. Create a Clerk
-application and note its Frontend API URL (for example
-`https://<name>.clerk.accounts.dev`). That is `CLERK_ISSUER`.
-`CLERK_AUTHORIZED_PARTIES` is the dashboard's origin, `https://vellatry.vercel.app`.
+The dashboard signs people in with Clerk (`/sign-in`, `/sign-up`), and the api checks
+every request's Clerk token. The api will not start in production without it.
 
-The dashboard's Clerk sign-in page is still to be built, so until it is, the deployed
-api runs but no one can sign in to it.
+1. Create a Clerk application. Choose the sign-in methods you want (email, Google).
+2. **Put the email in the session token.** Clerk → Sessions → Customize session token:
+
+   ```json
+   { "email": "{{user.primary_email_address}}" }
+   ```
+
+   The api identifies people by this claim. Without it, users get a placeholder
+   address, and anything keyed on email breaks: team membership for the CMO hub,
+   email alerts. It corrects itself on the next sign-in once the claim is added.
+3. Note three values:
+   - `CLERK_ISSUER` (api): the Frontend API URL, for example
+     `https://<name>.clerk.accounts.dev`;
+   - `CLERK_AUTHORIZED_PARTIES` (api): the dashboard's origin,
+     `https://vellatry.vercel.app`;
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (Vercel): the publishable key from API keys.
+
+   The dashboard does no server-side auth, so it needs no Clerk secret key.
+
+**Clerk's production mode needs a domain you own**, with DNS records Clerk gives you, so
+it cannot run on `vellatry.vercel.app`. Until Vellatry has its own domain, use the
+Clerk application's development instance. It works on any address, shows a small
+"Development mode" badge, and is limited to a small number of users: fine for the
+first design partners. When the domain arrives, create the production instance and
+swap the three values.
+
+Leave `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` empty locally: Clerk is then not loaded at
+all, and the Account page's header sign-in is used (with `VELLATRY_DEV_AUTH=1` on the
+api).
 
 ## 3. The api and worker on Fly
 
@@ -118,9 +143,15 @@ Setting a secret restarts the machines.
 ## 4. The dashboard on Vercel
 
 1. Project → Settings → Build and Deployment → **Root Directory**: `web`.
-2. Environment variable `NEXT_PUBLIC_API_URL` = `https://vellatry-api.fly.dev`. It is
-   compiled into the build, so set it before deploying.
+2. Environment variables (compiled into the build, so set them before deploying):
+   - `NEXT_PUBLIC_API_URL` = `https://vellatry-api.fly.dev`
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` = the key from step 2
+   - `NEXT_PUBLIC_SITE_URL` = `https://vellatry.vercel.app` (canonical links and link
+     previews on the landing page)
 3. Redeploy.
+
+`/` is the public landing page and the only page search engines may index. The app
+itself starts at `/today` and is marked noindex.
 
 If the dashboard moves to its own domain, update `APP_URL`, `ALLOWED_ORIGINS` and
 `CLERK_AUTHORIZED_PARTIES` to match.

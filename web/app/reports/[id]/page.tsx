@@ -36,7 +36,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   // CMO gets.
   useEffect(() => {
     let live = true
-    fetch(`${API}/v1/reports/${id}/preview`, { headers: authHeaders() })
+    authHeaders().then((headers) => fetch(`${API}/v1/reports/${id}/preview`, { headers }))
       .then((r) => r.text())
       .then((html) => live && setPreview(html))
       .catch(() => {})

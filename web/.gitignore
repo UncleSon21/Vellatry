@@ -3,3 +3,6 @@ node_modules/
 out/
 .env.local
 *.tsbuildinfo
+
+# Clerk writes temporary keys here if it ever runs without ours
+.clerk/

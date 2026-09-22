@@ -24,7 +24,8 @@ a { color: inherit; }
 
 .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
 .side { border-right: 1px solid var(--line); background: var(--panel); padding: 20px 12px; }
-.brandmark { font-weight: 700; font-size: 17px; padding: 4px 10px 16px; letter-spacing: -0.2px; }
+.brandmark { display: block; font-weight: 700; font-size: 17px; padding: 4px 10px 16px; letter-spacing: -0.2px; text-decoration: none; }
+.sideuser { border-top: 1px solid var(--line); margin-top: 18px; padding: 14px 10px 0; }
 .navgroup { color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; padding: 14px 10px 4px; }
 .navlink {
   display: block; padding: 7px 10px; border-radius: 6px; text-decoration: none;

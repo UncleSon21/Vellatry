@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useApi } from '@/lib/api'
 import { Card, ErrorNote, Loading, Table } from '@/components/ui'
+import { clerkEnabled } from '@/lib/auth'
 
 type Me = { user_id: string; email: string; org_id?: string; role?: string; orgs: { id: string; name: string; role: string }[] }
 
@@ -61,6 +62,7 @@ export default function AccountPage() {
         </p>
       </Card>
 
+      {!clerkEnabled && (
       <Card title="Local development sign-in" sub="Only works when the api runs with VELLATRY_DEV_AUTH=1. In production this is Clerk, and the browser never holds a long-lived token.">
         <div className="row">
           <div>
@@ -76,6 +78,7 @@ export default function AccountPage() {
           </button>
         </div>
       </Card>
+      )}
     </>
   )
 }

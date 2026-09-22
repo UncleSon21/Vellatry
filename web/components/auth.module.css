@@ -1,0 +1,78 @@
+/* Sign-in and sign-up. Tokens from globals.css; rules in .claude/skills/vellatry-design. */
+
+.frame {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+  background: var(--panel);
+}
+
+.story {
+  background: #0b1220;
+  color: #fff;
+  padding: 40px 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 40px;
+}
+.wordmark { color: #fff; font-weight: 700; font-size: 18px; letter-spacing: -0.3px; text-decoration: none; }
+.wordmark:focus-visible,
+.button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.headline {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(32px, 3.4vw, 48px);
+  line-height: 1.06;
+  letter-spacing: -0.01em;
+  margin: 0 0 28px;
+  max-width: 13em;
+}
+.points { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; color: #c3cad6; font-size: 15px; }
+.points li { padding-left: 18px; position: relative; }
+.points li::before { content: ''; position: absolute; left: 0; top: 9px; width: 6px; height: 6px; border-radius: 50%; background: #93b4f5; }
+.small { font-size: 13px; color: #8a94a6; }
+
+.form { display: grid; place-items: center; padding: 48px 24px; background: var(--bg); }
+
+.notice {
+  max-width: 420px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 28px;
+}
+.notice h2 { font-size: 18px; margin: 0 0 8px; }
+.notice p { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
+.notice code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+.button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+@media (max-width: 860px) {
+  .frame { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .story { padding: 24px 16px; gap: 20px; }
+  .headline { font-size: 30px; margin-bottom: 16px; }
+  .points,
+  .small { display: none; }
+  .form { place-items: start center; padding: 24px 16px 48px; }
+}
