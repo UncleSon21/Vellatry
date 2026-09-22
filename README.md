@@ -90,8 +90,9 @@ cmd/vellatry/   one binary: migrate | api | worker
 internal/       production packages (platform/, api/, visibility/, site/, dataforseo/, google/, archtest/)
 web/            the dashboard (Next.js); talks to the api and nothing else
 spikes/         throwaway experiments
-deploy/         local Postgres
-docs/           decisions and notes
+deploy/         local Postgres, the managed-Postgres bootstrap, Gotenberg on Fly
+docs/           decisions, notes, and how to deploy
+Dockerfile      the api and worker image; fly.toml runs it on Fly.io
 ```
 
 ## Run locally
@@ -114,3 +115,9 @@ go test ./...
 ```
 
 Without `VELLATRY_TEST_DATABASE_URL` the database tests are skipped.
+
+## Deploy
+
+The api and worker run on Fly.io in Sydney from one image, Postgres on Neon in Sydney,
+and the dashboard on Vercel. Step by step, including the checks that refuse an unsafe
+production setup: [docs/deploy.md](docs/deploy.md).

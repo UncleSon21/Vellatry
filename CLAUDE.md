@@ -44,7 +44,11 @@ Key decisions in short form: `docs/decisions.md`.
 - **Report figures.** A summary or note may only repeat figures the report shows
   (`reports.Figures` / `reports.Unverified`). Model-suggested paragraphs that fail are
   dropped; the team's own words are flagged and need an explicit confirmation.
-- **Secrets** come from environment variables. Never commit `.env`.
+- **Secrets** come from environment variables. Never commit `.env`. In production they
+  are Fly secrets (`fly secrets set`), never values in `fly.toml`.
+- **Production is explicit.** `VELLATRY_ENV=production` makes `config.FromEnv` refuse
+  development-only settings. A new setting that is only safe locally gets a check there,
+  and `TestFlyConfigPassesProductionChecks` keeps `fly.toml` honest.
 - **Customer-supplied URLs.** Anything we fetch because a customer typed it (their
   domain, a page URL) goes through `site.PublicOnlyClient`, which refuses private,
   loopback, link-local and reserved addresses at connect time. Never fetch one with
@@ -74,7 +78,9 @@ Key decisions in short form: `docs/decisions.md`.
   admin): `db.InSystem`. A query that uses neither sees no rows: RLS is forced and the
   connecting owner matches no policy.
 - Never connect as a superuser; superusers bypass row-level security. Local and test
-  databases use `vellatry_app` (see `deploy/`).
+  databases use `vellatry_app` (see `deploy/`); production creates it with
+  `deploy/postgres-bootstrap.sql`. `db.Open` refuses a superuser or `BYPASSRLS` user in
+  every role, so do not add a way around that check.
 - The app user is a member of `vellatry_tenant` and `vellatry_system` **WITH INHERIT
   FALSE** (migration 0009). Membership is what lets `SET ROLE` work; inheritance would
   apply both roles' policies to every query and quietly undo fail-closed. Do not grant
@@ -105,7 +111,8 @@ Key decisions in short form: `docs/decisions.md`.
 - `internal/` domain packages (`visibility/...`, `dataforseo`, ...)
 - `internal/archtest` architecture rules as tests
 - `spikes/NN-name/` throwaway experiments; may import `internal/`, never imported by it
-- `deploy/` local Postgres (docker compose)
+- `deploy/` local Postgres (docker compose), the managed-Postgres bootstrap, Gotenberg on Fly
+- `Dockerfile` + `fly.toml` the api and worker on Fly.io; `docs/deploy.md` is the runbook
 - `docs/` decisions and notes
 
 ## Commands

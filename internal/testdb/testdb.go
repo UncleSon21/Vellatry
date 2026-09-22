@@ -33,15 +33,7 @@ func Pool(t testing.TB) *pgxpool.Pool {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(pool.Close)
-
-	var bypass bool
-	if err := pool.QueryRow(ctx, "SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user").Scan(&bypass); err != nil {
-		t.Fatal(err)
-	}
-	if bypass {
-		t.Fatal("test database user bypasses row-level security; connect as a non-superuser such as vellatry_app")
-	}
+	t.Cleanup(pool.Close) // db.Open has already refused a user that bypasses row-level security
 
 	migrateOnce.Do(func() { migrateErr = db.Migrate(ctx, pool) })
 	if migrateErr != nil {

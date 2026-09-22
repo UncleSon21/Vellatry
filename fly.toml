@@ -1,0 +1,64 @@
+# Fly.io: the api and the worker from one image, in Sydney. Setup: docs/deploy.md.
+# Secrets (DATABASE_URL, VELLATRY_SECRET_KEY, CLERK_*, provider keys) are set with
+# `fly secrets set`, never here.
+app = "vellatry-api"
+primary_region = "syd"
+kill_signal = "SIGTERM"
+kill_timeout = "30s" # the worker finishes or hands back its running jobs
+
+[build]
+  dockerfile = "Dockerfile"
+
+[deploy]
+  # Runs once per release, before any machine is replaced. A failed migration stops the
+  # release and the running version keeps serving.
+  release_command = "migrate"
+
+[env]
+  VELLATRY_ENV = "production"
+  PORT = "8080"
+  APP_URL = "https://vellatry.vercel.app"
+  ALLOWED_ORIGINS = "https://vellatry.vercel.app"
+  HUB_URL = "https://vellatry-api.fly.dev"
+  GOOGLE_REDIRECT_URL = "https://vellatry-api.fly.dev/oauth/google/callback"
+  ASANA_REDIRECT_URL = "https://vellatry-api.fly.dev/oauth/asana/callback"
+  VELLATRY_TIME_ZONE = "Australia/Sydney"
+  BIGQUERY_LOCATION = "australia-southeast1"
+  # Report PDFs, once deploy/gotenberg is running (docs/deploy.md, step 5):
+  # GOTENBERG_URL = "http://vellatry-gotenberg.flycast"
+
+[processes]
+  api = "api"
+  worker = "worker"
+
+[http_service]
+  processes = ["api"]
+  internal_port = 8080
+  force_https = true
+  # Always on: the dashboard holds an event stream open, and the CMO sign-in links in
+  # emails must not wait for a cold start.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    timeout = "5s"
+    method = "GET"
+    path = "/healthz"
+
+[[vm]]
+  processes = ["api"]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[[vm]]
+  processes = ["worker"]
+  size = "shared-cpu-1x"
+  memory = "512mb"

@@ -33,7 +33,14 @@ const (
 	roleSystem = "vellatry_system"
 )
 
-// Open connects a pool and checks it is reachable.
+// ErrBypassesRLS means the connection's user would see every tenant's rows whatever
+// the policies say.
+var ErrBypassesRLS = errors.New("db: the database user is a superuser or has BYPASSRLS, so row-level security would not apply; " +
+	"connect as vellatry_app (deploy/postgres-bootstrap.sql)")
+
+// Open connects a pool, checks it is reachable, and refuses a user that bypasses
+// row-level security. Managed Postgres providers hand out exactly such an admin user
+// by default, and connecting as it would quietly show every tenant's data.
 func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	pool, err := pgxpool.New(ctx, url)
 	if err != nil {
@@ -42,6 +49,15 @@ func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("db: ping: %w", err)
+	}
+	var bypass bool
+	if err := pool.QueryRow(ctx, `SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user`).Scan(&bypass); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("db: check role: %w", err)
+	}
+	if bypass {
+		pool.Close()
+		return nil, ErrBypassesRLS
 	}
 	return pool, nil
 }

@@ -1,0 +1,6 @@
+# The image needs the Go module and nothing else: no dashboard, no docs, no .env.
+*
+!go.mod
+!go.sum
+!cmd/
+!internal/

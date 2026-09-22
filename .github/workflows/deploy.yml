@@ -1,0 +1,43 @@
+name: deploy
+
+# Deploys the api and worker to Fly.io after ci passes on main: exactly the commit that
+# was tested, never an untested one. Nothing happens until the repository has a
+# FLY_API_TOKEN secret (fly tokens create deploy -a vellatry-api). docs/deploy.md.
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: deploy-fly
+  cancel-in-progress: false
+
+jobs:
+  fly:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - name: Check for a Fly token
+        id: gate
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "No FLY_API_TOKEN secret, so nothing was deployed." >> "$GITHUB_STEP_SUMMARY"
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.deploy == 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: steps.gate.outputs.deploy == 'true'
+
+      - name: Deploy (migrations run first, as the release command)
+        if: steps.gate.outputs.deploy == 'true'
+        run: flyctl deploy --remote-only

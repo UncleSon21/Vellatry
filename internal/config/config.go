@@ -4,13 +4,22 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 )
 
+// Environments. Production refuses the settings that are only safe on a developer's
+// machine; development is the default so a fresh checkout runs.
+const (
+	Development = "development"
+	Production  = "production"
+)
+
 // Config is every setting the roles need.
 type Config struct {
+	Env         string // VELLATRY_ENV: development or production
 	DatabaseURL string
 	Port        string
 
@@ -87,6 +96,7 @@ func (c Config) EmailConfigured() bool { return c.PostmarkToken != "" && c.Email
 // credentials are missing are disabled by the roles, not guessed.
 func FromEnv() (Config, error) {
 	c := Config{
+		Env:                    env("VELLATRY_ENV", Development),
 		DatabaseURL:            os.Getenv("DATABASE_URL"),
 		Port:                   env("PORT", "8080"),
 		DevAuth:                os.Getenv("VELLATRY_DEV_AUTH") == "1",
@@ -144,7 +154,68 @@ func FromEnv() (Config, error) {
 	if c.ClerkIssuer != "" && c.ClerkJWKSURL == "" {
 		c.ClerkJWKSURL = c.ClerkIssuer + "/.well-known/jwks.json"
 	}
+	switch c.Env {
+	case Development:
+	case Production:
+		if err := c.checkProduction(); err != nil {
+			return c, err
+		}
+	default:
+		return c, fmt.Errorf("VELLATRY_ENV must be %s or %s, got %q", Development, Production, c.Env)
+	}
 	return c, nil
+}
+
+// Production reports whether this is a production deployment.
+func (c Config) Production() bool { return c.Env == Production }
+
+// checkProduction refuses what is only safe on a developer's machine. It lists every
+// problem at once, so a first deploy is one round of fixes rather than one per restart.
+func (c Config) checkProduction() error {
+	var problems []string
+	if c.DevAuth {
+		problems = append(problems, "VELLATRY_DEV_AUTH=1 trusts a request header for identity and is refused in production; set CLERK_ISSUER")
+	}
+	if c.SecretKey == "" {
+		problems = append(problems, "VELLATRY_SECRET_KEY is required: it signs event-stream tickets and seals stored credentials (openssl rand -base64 32)")
+	}
+	urls := [][2]string{{"APP_URL", c.AppURL}, {"HUB_URL", c.HubURL}}
+	if len(c.AllowedOrigins) == 0 {
+		problems = append(problems, "ALLOWED_ORIGINS must list the dashboard's https origin")
+	}
+	for _, o := range c.AllowedOrigins {
+		urls = append(urls, [2]string{"ALLOWED_ORIGINS", o})
+	}
+	if c.GoogleConfigured() {
+		urls = append(urls, [2]string{"GOOGLE_REDIRECT_URL", c.GoogleRedirectURL})
+		if c.BigQueryProject == "" {
+			problems = append(problems, "BIGQUERY_PROJECT is required once Google connections are on: without it raw Search Console and GA4 facts are kept in memory and lost on restart")
+		}
+	}
+	if c.AsanaConfigured() {
+		urls = append(urls, [2]string{"ASANA_REDIRECT_URL", c.AsanaRedirectURL})
+	}
+	for _, u := range urls {
+		if !publicHTTPS(u[1]) {
+			problems = append(problems, fmt.Sprintf("%s must be a public https URL, got %q", u[0], u[1]))
+		}
+	}
+	if len(problems) == 0 {
+		return nil
+	}
+	return errors.New("production configuration:\n  - " + strings.Join(problems, "\n  - "))
+}
+
+func publicHTTPS(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || u.Host == "" {
+		return false
+	}
+	switch h := u.Hostname(); {
+	case h == "localhost", strings.HasSuffix(h, ".localhost"), h == "127.0.0.1", h == "::1", h == "0.0.0.0":
+		return false
+	}
+	return true
 }
 
 func env(key, def string) string {

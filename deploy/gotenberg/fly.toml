@@ -1,0 +1,30 @@
+# Optional: Gotenberg renders report PDFs for the worker. It has no public address: the
+# worker reaches it over Fly's private network (Flycast), and it only ever renders
+# Vellatry's own report HTML. Without it, published reports have a web view only.
+#
+#   fly apps create vellatry-gotenberg
+#   fly deploy -c deploy/gotenberg/fly.toml --no-public-ips --ha=false
+#   fly ips allocate-v6 --private -a vellatry-gotenberg
+#
+# then uncomment GOTENBERG_URL in the root fly.toml and deploy the api again.
+app = "vellatry-gotenberg"
+primary_region = "syd"
+
+[build]
+  image = "gotenberg/gotenberg:8"
+
+[[services]]
+  internal_port = 3000
+  protocol = "tcp"
+  # Asleep between reports; a request over Flycast wakes it.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
