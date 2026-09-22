@@ -22,6 +22,7 @@ import (
 	"cloud.google.com/go/bigquery"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
+	"google.golang.org/api/option"
 
 	"github.com/UncleSon21/vellatry/internal/api"
 	"github.com/UncleSon21/vellatry/internal/asanaauth"
@@ -330,7 +331,12 @@ func openWarehouse(ctx context.Context, cfg config.Config, log *slog.Logger) (wa
 		log.Warn("BIGQUERY_PROJECT not set: raw Search Console and GA4 facts are kept IN MEMORY and lost on restart. Local development only.")
 		return warehouse.NewMemory(), func() {}, nil
 	}
-	client, err := bigquery.NewClient(ctx, cfg.BigQueryProject)
+	var opts []option.ClientOption
+	if len(cfg.BigQueryCredentials) > 0 {
+		// Only a service-account key is accepted here, whatever the JSON claims to be.
+		opts = append(opts, option.WithAuthCredentialsJSON(option.ServiceAccount, cfg.BigQueryCredentials))
+	}
+	client, err := bigquery.NewClient(ctx, cfg.BigQueryProject, opts...)
 	if err != nil {
 		return nil, nil, err
 	}

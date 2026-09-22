@@ -173,16 +173,40 @@ fly ips allocate-v6 --private -a vellatry-gotenberg
 Then uncomment `GOTENBERG_URL` in `fly.toml` and deploy the api again. Gotenberg sleeps
 between reports and wakes on the worker's first request.
 
-## 6. Google connections (later)
+## 6. Google connections
 
-Google needs two things in place first:
-- an OAuth client whose redirect URI is `https://vellatry-api.fly.dev/oauth/google/callback`;
-- BigQuery for the raw facts.
+Search Console and GA4 need two things: an OAuth client for the sign-in, and BigQuery
+for the raw facts. Production refuses Google connections without BigQuery rather than
+keeping the facts in memory.
 
-The worker authenticates to BigQuery with Application Default Credentials. Getting a
-service-account credential onto the worker machine is not wired up yet. Until it is,
-production refuses Google connections without `BIGQUERY_PROJECT`, rather than keeping
-the facts in memory.
+**The OAuth client** (Google Cloud → APIs & Services → Credentials → OAuth client ID,
+type Web application). Its redirect URI is
+`https://vellatry-api.fly.dev/oauth/google/callback`. Enable the Search Console API and
+the Google Analytics Data and Admin APIs, then set `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` as secrets.
+
+**BigQuery.** Fly machines have no Google identity of their own, so the worker uses a
+service-account key:
+
+1. In the Google Cloud project for the warehouse, create a service account (for example
+   `vellatry-warehouse`) and grant it **BigQuery Data Editor** and **BigQuery Job
+   User**. The worker creates its dataset (`vellatry_raw`, in `australia-southeast1`) and
+   one table per organisation, loads day partitions, and deletes a tenant's tables when
+   asked. For a tighter grant, create the dataset yourself and give Data Editor on that
+   dataset only.
+2. Create a JSON key for it and set it as a secret, base64-encoded so the shell leaves it
+   alone. The project is read from the key, so `BIGQUERY_PROJECT` is optional:
+
+   ```bash
+   fly secrets set -a vellatry-api BIGQUERY_CREDENTIALS_JSON="$(base64 -w0 vellatry-warehouse.json)"
+   ```
+
+3. Delete the downloaded key file. The secret is now the only copy; rotate it by
+   creating a new key, setting it, then deleting the old key in Google Cloud.
+
+The worker accepts only a service-account key here. Any other credential type is
+refused at startup, and the error never repeats the value. Locally, leave it unset:
+`gcloud auth application-default login` is used instead.
 
 ## Deploying changes
 

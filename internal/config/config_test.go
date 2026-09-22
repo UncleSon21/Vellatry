@@ -2,6 +2,7 @@ package config
 
 import (
 	"bufio"
+	"encoding/base64"
 	"os"
 	"strings"
 	"testing"
@@ -13,7 +14,7 @@ func clean(t *testing.T) {
 	t.Helper()
 	for _, k := range []string{"VELLATRY_ENV", "DATABASE_URL", "VELLATRY_DEV_AUTH", "VELLATRY_SECRET_KEY", "APP_URL", "HUB_URL",
 		"ALLOWED_ORIGINS", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URL", "BIGQUERY_PROJECT",
-		"ASANA_CLIENT_ID", "ASANA_CLIENT_SECRET", "ASANA_REDIRECT_URL", "CLERK_ISSUER"} {
+		"ASANA_CLIENT_ID", "ASANA_CLIENT_SECRET", "ASANA_REDIRECT_URL", "CLERK_ISSUER", "BIGQUERY_CREDENTIALS_JSON"} {
 		t.Setenv(k, "")
 	}
 	t.Setenv("DATABASE_URL", "postgres://vellatry_app@db/vellatry")
@@ -122,5 +123,47 @@ func TestFlyConfigPassesProductionChecks(t *testing.T) {
 	}
 	if !c.Production() {
 		t.Error("fly.toml does not set VELLATRY_ENV=production")
+	}
+}
+
+func TestBigQueryServiceAccountKey(t *testing.T) {
+	const key = `{"type":"service_account","project_id":"vellatry-au","client_email":"warehouse@vellatry-au.iam.gserviceaccount.com","private_key":"-----BEGIN PRIVATE KEY-----\nnot-a-real-key\n-----END PRIVATE KEY-----\n"}`
+	for name, value := range map[string]string{"json": key, "base64": base64.StdEncoding.EncodeToString([]byte(key))} {
+		clean(t)
+		t.Setenv("BIGQUERY_CREDENTIALS_JSON", value)
+		t.Setenv("BIGQUERY_PROJECT", "")
+		c, err := FromEnv()
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if string(c.BigQueryCredentials) != key || c.BigQueryProject != "vellatry-au" {
+			t.Errorf("%s: project %q, %d key bytes; the project comes from the key", name, c.BigQueryProject, len(c.BigQueryCredentials))
+		}
+	}
+
+	// A project set explicitly wins over the key's.
+	clean(t)
+	t.Setenv("BIGQUERY_CREDENTIALS_JSON", key)
+	t.Setenv("BIGQUERY_PROJECT", "other-project")
+	if c, err := FromEnv(); err != nil || c.BigQueryProject != "other-project" {
+		t.Errorf("explicit project: %q, %v", c.BigQueryProject, err)
+	}
+
+	// Anything but a service-account key is refused, and the error never repeats the secret.
+	for name, value := range map[string]string{
+		"a user credential": `{"type":"authorized_user","client_id":"id","client_secret":"hunter2-secret","refresh_token":"rt"}`,
+		"not json":          "hunter2-secret-not-base64!",
+		"no private key":    `{"type":"service_account","client_email":"x@y.iam.gserviceaccount.com","note":"hunter2-secret"}`,
+	} {
+		clean(t)
+		t.Setenv("BIGQUERY_CREDENTIALS_JSON", value)
+		_, err := FromEnv()
+		if err == nil {
+			t.Errorf("%s was accepted", name)
+			continue
+		}
+		if strings.Contains(err.Error(), "hunter2") {
+			t.Errorf("%s: the error repeats the secret: %v", name, err)
+		}
 	}
 }

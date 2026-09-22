@@ -2,6 +2,8 @@
 package config
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -72,7 +74,11 @@ type Config struct {
 	GotenbergURL string
 
 	// BigQuery warehouse for raw Search Console and GA4 facts.
-	BigQueryProject     string
+	BigQueryProject string
+	// BigQueryCredentials is a service-account key (JSON) for hosts with no ambient
+	// Google credentials, such as Fly. Empty means Application Default Credentials
+	// (gcloud on a laptop, or a Google-hosted machine).
+	BigQueryCredentials []byte
 	BigQueryDataset     string
 	BigQueryLocation    string
 	BigQueryMaxBytes    int64
@@ -129,6 +135,13 @@ func FromEnv() (Config, error) {
 		BigQueryLocation:       env("BIGQUERY_LOCATION", "australia-southeast1"),
 	}
 	var err error
+	var keyProject string
+	if c.BigQueryCredentials, keyProject, err = serviceAccountKey(os.Getenv("BIGQUERY_CREDENTIALS_JSON")); err != nil {
+		return c, err
+	}
+	if c.BigQueryProject == "" {
+		c.BigQueryProject = keyProject // the key names its project; setting it twice invites a mismatch
+	}
 	maxBytes, err := number("BIGQUERY_MAX_BYTES", 1<<30)
 	if err != nil {
 		return c, err
@@ -204,6 +217,36 @@ func (c Config) checkProduction() error {
 		return nil
 	}
 	return errors.New("production configuration:\n  - " + strings.Join(problems, "\n  - "))
+}
+
+// serviceAccountKey reads a service-account key given as its JSON or as that JSON
+// base64-encoded (easier to pass through a shell). Anything but a service-account key
+// is refused: the client library would otherwise accept any credential type it is
+// handed. Errors never repeat the value, which is a secret.
+func serviceAccountKey(raw string) (key []byte, project string, err error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, "", nil
+	}
+	key = []byte(raw)
+	if !strings.HasPrefix(raw, "{") {
+		if key, err = base64.StdEncoding.DecodeString(raw); err != nil {
+			return nil, "", errors.New("BIGQUERY_CREDENTIALS_JSON must be a service-account key: its JSON, or that JSON base64-encoded")
+		}
+	}
+	var k struct {
+		Type        string `json:"type"`
+		ProjectID   string `json:"project_id"`
+		ClientEmail string `json:"client_email"`
+		PrivateKey  string `json:"private_key"`
+	}
+	if json.Unmarshal(key, &k) != nil {
+		return nil, "", errors.New("BIGQUERY_CREDENTIALS_JSON is not valid JSON")
+	}
+	if k.Type != "service_account" || k.ClientEmail == "" || k.PrivateKey == "" {
+		return nil, "", errors.New(`BIGQUERY_CREDENTIALS_JSON must be a service-account key (type "service_account", with client_email and private_key)`)
+	}
+	return key, k.ProjectID, nil
 }
 
 func publicHTTPS(raw string) bool {
