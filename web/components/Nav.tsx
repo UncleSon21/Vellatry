@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { UserButton } from '@clerk/nextjs'
 import { clerkEnabled } from '@/lib/auth'
+import { Mark } from '@/components/Mark'
 
 const groups: { name: string; links: { href: string; label: string }[] }[] = [
   {
@@ -52,6 +53,7 @@ export function Nav() {
   return (
     <nav className="side">
       <Link href="/today" className="brandmark">
+        <Mark size={20} />
         Vellatry
       </Link>
       {groups.map((g) => (

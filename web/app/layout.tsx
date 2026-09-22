@@ -3,6 +3,7 @@ import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
 import { Shell } from '@/components/Shell'
 import { clerkAppearance } from '@/lib/clerkAppearance'
+import { sans } from '@/lib/fonts'
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://vellatry.vercel.app'),
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const page = (
-    <html lang="en-AU">
+    <html lang="en-AU" className={sans.variable}>
       <body>
         <Shell>{children}</Shell>
       </body>

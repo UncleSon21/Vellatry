@@ -74,8 +74,11 @@ blindspot into a fix whose outcome is measured.
   Sign-in and sign-up are Clerk, themed from the app's own tokens. The session token
   is fetched per request and never stored. Without a Clerk key (local development),
   Clerk is not loaded and the api's header sign-in is used. The app starts at `/today`.
-- **Design:** `.claude/skills/vellatry-design` holds the design language (tokens,
-  type, components, copy rules, the checks before a design is done), so every session
+- **Design:** "paper and highlighter": Archivo throughout, warm paper, lime for your
+  mentions and coral for a competitor's. The landing page shows the product itself in a
+  self-playing tour (Today, a blindspot, Test my setup, Fixes) and plays a live check in
+  the hero. `.claude/skills/vellatry-design` holds the tokens, type, motion rules,
+  components, copy rules and the checks before a design is done, so every session
   designs the same way.
 - **Dashboard (`web/`):** Next.js, no UI framework and no chart library. Overview,
   Performance, Blindspots, Sources, Search, Topics, Site, Fixes, Reports, Automations

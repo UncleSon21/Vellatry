@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ReactNode } from 'react'
-import { display } from '@/lib/fonts'
+import { Mark } from '@/components/Mark'
 import s from './auth.module.css'
 
 // AuthFrame is the sign-in and sign-up screen: the product's promise on one side,
@@ -9,13 +9,16 @@ import s from './auth.module.css'
 export function AuthFrame({ title, children }: { title: string; children: ReactNode }) {
   const clerk = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)
   return (
-    <div className={`${s.frame} ${display.variable}`}>
+    <div className={s.frame}>
       <aside className={s.story}>
         <Link href="/" className={s.wordmark}>
+          <Mark className={s.mark} />
           Vellatry
         </Link>
         <div>
-          <p className={s.headline}>Find your AI blindspots. Fix them. Prove it to your CMO.</p>
+          <p className={s.headline}>
+            Find your AI <span className={s.swipe}>blindspots.</span> Fix them. Prove it to your CMO.
+          </p>
           <ul className={s.points}>
             <li>Where ChatGPT, Gemini and AI Overviews leave you out</li>
             <li>Beside your own Search Console data</li>

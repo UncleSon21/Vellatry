@@ -3,20 +3,20 @@
 // the server layout to Clerk's provider.
 export const clerkAppearance = {
   variables: {
-    colorPrimary: '#101828',
+    colorPrimary: '#15171c',
     colorPrimaryForeground: '#ffffff',
-    colorForeground: '#101828',
-    colorMutedForeground: '#475467',
+    colorForeground: '#15171c',
+    colorMutedForeground: '#52555c',
     colorBackground: '#ffffff',
     colorInput: '#ffffff',
-    colorInputForeground: '#101828',
-    colorBorder: '#d0d5dd',
+    colorInputForeground: '#15171c',
+    colorBorder: '#d9d3c4',
     colorDanger: '#b42318',
     borderRadius: '8px',
-    fontFamily: '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    fontFamily: 'var(--font-sans), -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   },
   elements: {
-    cardBox: { boxShadow: 'none', border: '1px solid #eaecf0' },
-    footer: { background: '#f6f7f9' },
+    cardBox: { boxShadow: 'none', border: '1px solid #e6e1d5' },
+    footer: { background: '#f4f1ea' },
   },
 }

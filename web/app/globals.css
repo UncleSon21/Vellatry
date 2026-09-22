@@ -1,16 +1,27 @@
-/* One stylesheet, no framework: the dashboard is tables, tiles and a line chart. */
+/* One stylesheet, no framework: the dashboard is tables, tiles and a line chart.
+   Tokens and rules: .claude/skills/vellatry-design. */
 :root {
-  --ink: #101828;
-  --muted: #475467;
-  --faint: #98a2b3;
-  --line: #eaecf0;
-  --bg: #f6f7f9;
+  --ink: #15171c;
+  --muted: #52555c;
+  --faint: #8d8a82;
+  --line: #e6e1d5;
+  --bg: #f4f1ea;          /* paper: the product is never flat white */
   --panel: #ffffff;
-  --accent: #1d4ed8;
+  --accent: #1d4ed8;      /* links, focus, data lines */
   --good: #067647;
   --bad: #b42318;
   --warn: #b54708;
   --radius: 8px;
+
+  /* The two mention colours, everywhere a mention is shown: the highlighter for you,
+     coral for whoever was named instead. */
+  --lime: #d6f25e;
+  --lime-soft: #ecf8b8;
+  --lime-ink: #3b4d00;
+  --coral: #ff6a3d;
+  --coral-soft: #ffe2d7;
+  --coral-ink: #b3370f;
+  --night: #111318;       /* dark bands on marketing pages */
 }
 
 * { box-sizing: border-box; }
@@ -18,13 +29,16 @@ html, body { padding: 0; margin: 0; }
 body {
   background: var(--bg);
   color: var(--ink);
-  font: 15px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font: 15px/1.55 var(--font-sans), -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 a { color: inherit; }
 
 .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
 .side { border-right: 1px solid var(--line); background: var(--panel); padding: 20px 12px; }
-.brandmark { display: block; font-weight: 700; font-size: 17px; padding: 4px 10px 16px; letter-spacing: -0.2px; text-decoration: none; }
+.brandmark {
+  display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 17px; font-variation-settings: 'wdth' 112;
+  padding: 4px 10px 16px; letter-spacing: -0.3px; text-decoration: none;
+}
 .sideuser { border-top: 1px solid var(--line); margin-top: 18px; padding: 14px 10px 0; }
 .navgroup { color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; padding: 14px 10px 4px; }
 .navlink {
@@ -137,6 +151,6 @@ label.check { display: inline-flex; align-items: center; gap: 6px; font-size: 14
 .tester { border-top: 1px solid var(--line); padding-top: 14px; }
 .hl { white-space: pre-wrap; background: var(--bg); border-radius: 6px; padding: 12px 14px; font-size: 14px; max-height: 360px; overflow-y: auto; }
 mark { border-radius: 3px; padding: 0 2px; }
-mark.m-brand { background: #dbeafe; color: var(--accent); font-weight: 600; }
-mark.m-comp { background: #fef0c7; color: var(--warn); font-weight: 600; }
+mark.m-brand { background: var(--lime-soft); color: var(--lime-ink); font-weight: 600; }
+mark.m-comp { background: var(--coral-soft); color: var(--coral-ink); font-weight: 600; }
 mark.m-excl { background: transparent; color: var(--faint); text-decoration: line-through; }
