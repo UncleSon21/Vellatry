@@ -1,0 +1,36 @@
+# The embedding service, private to the Fly organisation (Flycast), never public. The
+# worker is its only caller. Setup: ml/embed/README.md.
+#
+#   fly apps create vellatry-embed
+#   fly deploy -c ml/embed/fly.toml --no-public-ips --ha=false
+#   fly ips allocate-v6 --private -a vellatry-embed
+#
+# then set EMBED_URL=http://vellatry-embed.flycast on the api app and deploy it again.
+app = "vellatry-embed"
+primary_region = "syd"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[[services]]
+  internal_port = 8000
+  protocol = "tcp"
+  # Asleep between runs; the worker's first request wakes it. Embedding is a batch job
+  # after keyword research or a topic change, not something a person waits on.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.http_checks]]
+    path = "/healthz"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"

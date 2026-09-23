@@ -1,0 +1,7 @@
+# Pinned: an embedding is only comparable with others from the same model and runtime,
+# so upgrading any of these means re-embedding everything (internal/embed refuses to
+# compare vectors from different models).
+fastembed==0.8.1
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+pydantic==2.13.5

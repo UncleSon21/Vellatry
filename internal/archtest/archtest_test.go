@@ -57,6 +57,7 @@ var externalClients = []string{
 	module + "/internal/email",
 	module + "/internal/asana",
 	module + "/internal/pdf",
+	module + "/internal/embed", // calls ml/embed over the private network
 	module + "/internal/workers",
 }
 

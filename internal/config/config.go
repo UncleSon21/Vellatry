@@ -73,6 +73,10 @@ type Config struct {
 	HubURL       string
 	GotenbergURL string
 
+	// EmbedURL is Vellatry's own embedding service (ml/embed), used by the worker to
+	// tell when two topics mean the same thing. Empty disables the feature.
+	EmbedURL string
+
 	// BigQuery warehouse for raw Search Console and GA4 facts.
 	BigQueryProject string
 	// BigQueryCredentials is a service-account key (JSON) for hosts with no ambient
@@ -130,6 +134,7 @@ func FromEnv() (Config, error) {
 		TimeZone:               env("VELLATRY_TIME_ZONE", "Australia/Sydney"),
 		HubURL:                 strings.TrimRight(env("HUB_URL", "http://localhost:8080"), "/"),
 		GotenbergURL:           os.Getenv("GOTENBERG_URL"),
+		EmbedURL:               strings.TrimRight(os.Getenv("EMBED_URL"), "/"),
 		BigQueryProject:        os.Getenv("BIGQUERY_PROJECT"),
 		BigQueryDataset:        env("BIGQUERY_DATASET", "vellatry_raw"),
 		BigQueryLocation:       env("BIGQUERY_LOCATION", "australia-southeast1"),

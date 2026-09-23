@@ -26,6 +26,8 @@ kill_timeout = "30s" # the worker finishes or hands back its running jobs
   BIGQUERY_LOCATION = "australia-southeast1"
   # Report PDFs, once deploy/gotenberg is running (docs/deploy.md, step 5):
   # GOTENBERG_URL = "http://vellatry-gotenberg.flycast"
+  # Embeddings, once ml/embed is running (ml/embed/README.md):
+  # EMBED_URL = "http://vellatry-embed.flycast"
 
 [processes]
   api = "api"
