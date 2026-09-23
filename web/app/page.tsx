@@ -189,6 +189,30 @@ export default function Landing() {
           </ol>
         </section>
 
+        <section className={s.section} aria-labelledby="metrics-title">
+          <div className={s.split}>
+            <div className={s.reveal}>
+              <p className={s.kicker}>The metrics</p>
+              <h2 id="metrics-title" className={s.h2}>
+                The five numbers on your screen from day one
+              </h2>
+              <p className={s.body}>
+                No dashboard of vanity charts. Every check produces the same row your team will read on Today, computed by code from your own data.
+              </p>
+              <ul className={s.ticks}>
+                <li>AI visibility: the share of daily answers that mention you at all, across ChatGPT, Gemini and AI Overviews.</li>
+                <li>Share of voice: your mentions measured against every competitor named in the same answers.</li>
+                <li>Search clicks: your own Search Console data, so AI visibility and search performance sit side by side.</li>
+                <li>Blindspots confirmed: how many gaps are real and open right now, each with the evidence and the source cited.</li>
+                <li>Critical site issues: what stops an AI crawler reading you, surfaced before it costs you a mention.</li>
+              </ul>
+            </div>
+            <div className={s.reveal}>
+              <MetricsIllustration />
+            </div>
+          </div>
+        </section>
+
         <section className={s.featuresBand} aria-labelledby="features-title">
           <div className={s.section}>
             <div className={`${s.sectionHead} ${s.reveal}`}>
@@ -356,6 +380,49 @@ function LiveCheck() {
         Sent to Asana
       </span>
       <figcaption className={s.caption}>Illustration. Brands and figures are examples.</figcaption>
+    </figure>
+  )
+}
+
+// Mirrors the five tiles at the top of /today, in the same order: two carry a change
+// against the prior period, three are read as they stand, exactly as the real page
+// shows them.
+function MetricsIllustration() {
+  return (
+    <figure className={s.figure}>
+      <div className={`${s.mock} ${s.report}`} aria-label="Illustration of the metrics tiles on the Today page">
+        <div className={s.mockHead}>
+          <strong>Today</strong>
+          <span className={s.muted}>Last 28 days</span>
+          <span className={s.live} aria-hidden="true" />
+        </div>
+        <div className={s.metricGrid}>
+          <div>
+            <span className={s.metricLabel}>AI visibility</span>
+            <span className={s.metricValue}>34%</span>
+            <span className={`${s.metricChange} ${s.metricUp}`}>+9 pts</span>
+          </div>
+          <div>
+            <span className={s.metricLabel}>Share of voice</span>
+            <span className={s.metricValue}>22%</span>
+          </div>
+          <div>
+            <span className={s.metricLabel}>Search clicks</span>
+            <span className={s.metricValue}>2,480</span>
+            <span className={`${s.metricChange} ${s.metricUp}`}>+312</span>
+          </div>
+          <div>
+            <span className={s.metricLabel}>Blindspots confirmed</span>
+            <span className={s.metricValue}>6</span>
+          </div>
+          <div>
+            <span className={s.metricLabel}>Critical site issues</span>
+            <span className={s.metricValue}>1</span>
+          </div>
+        </div>
+        <p className={s.summary}>Same layout, same five numbers, from your first completed check.</p>
+      </div>
+      <figcaption className={s.caption}>Illustration. Figures are examples.</figcaption>
     </figure>
   )
 }
