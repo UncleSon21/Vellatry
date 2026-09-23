@@ -40,6 +40,12 @@ EMBED_URL=http://localhost:8000
 The first start downloads the weights (about 130 MB) to the fastembed cache; the
 Docker image bakes them in instead.
 
+On Windows, leave `FASTEMBED_CACHE_PATH` unset. Hugging Face's cache nests long blob
+names, and under a deep folder the path passes 260 characters and the download fails
+with a confusing `FileNotFoundError`. The default cache sits directly under the temp
+directory, which is short enough. (fastembed also tries its own mirror first, which
+currently answers 403; it then falls back to Hugging Face, which works.)
+
 ## Deploy
 
 See the header of `ml/embed/fly.toml`. It sleeps when idle and wakes on the worker's
