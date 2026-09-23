@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Mark as BrandMark } from '@/components/Mark'
 import { ProductTour } from '@/components/ProductTour'
+import { CountUp } from '@/components/CountUp'
+import { PointerEffects } from '@/components/PointerEffects'
 import s from './landing.module.css'
 
 const title = 'Vellatry: AI visibility for Australian marketing teams'
@@ -61,7 +63,7 @@ export default function Landing() {
       </header>
 
       <main id="main">
-        <section className={s.hero}>
+        <section className={s.hero} data-lens="">
           <div className={s.grid} aria-hidden="true" />
           <div className={s.heroInner}>
             <p className={s.eyebrow}>
@@ -154,7 +156,7 @@ export default function Landing() {
             </h2>
           </div>
           <ol className={s.steps}>
-            <li className={s.reveal}>
+            <li className={s.reveal} data-tilt="6">
               <span className={s.stepNo}>01</span>
               <h3>Measure</h3>
               <p>
@@ -162,7 +164,7 @@ export default function Landing() {
                 of you and your competitors. The counting is code, not a model&apos;s guess.
               </p>
             </li>
-            <li className={s.reveal}>
+            <li className={s.reveal} data-tilt="6">
               <span className={s.stepNo}>02</span>
               <h3>Find the blindspots</h3>
               <p>
@@ -170,7 +172,7 @@ export default function Landing() {
                 search demand behind the topic.
               </p>
             </li>
-            <li className={s.reveal}>
+            <li className={s.reveal} data-tilt="6">
               <span className={s.stepNo}>03</span>
               <h3>Fix</h3>
               <p>
@@ -178,7 +180,7 @@ export default function Landing() {
                 blindspot to Asana in one click.
               </p>
             </li>
-            <li className={s.reveal}>
+            <li className={s.reveal} data-tilt="6">
               <span className={s.stepNo}>04</span>
               <h3>Prove it</h3>
               <p>
@@ -285,17 +287,17 @@ export default function Landing() {
               </h2>
             </div>
             <ul className={s.principles}>
-              <li className={s.reveal}>
+              <li className={s.reveal} data-tilt="6">
                 <span className={s.stepNo}>A</span>
                 <h3>Code counts, models write</h3>
                 <p>Every mention, score and position is computed by code with its method recorded. A model may word a summary. It never supplies a number.</p>
               </li>
-              <li className={s.reveal}>
+              <li className={s.reveal} data-tilt="6">
                 <span className={s.stepNo}>B</span>
                 <h3>Read-only by default</h3>
                 <p>Vellatry reads your Google data and never changes your accounts. Asana is the one place it writes, and only when you ask it to.</p>
               </li>
-              <li className={s.reveal}>
+              <li className={s.reveal} data-tilt="6">
                 <span className={s.stepNo}>C</span>
                 <h3>Built for Australia</h3>
                 <p>Australian locations in every check, the financial year in every report, and your search and visibility data stored in Sydney.</p>
@@ -327,6 +329,7 @@ export default function Landing() {
         </span>
         <span>© {new Date().getFullYear()} Vellatry</span>
       </footer>
+      <PointerEffects />
     </div>
   )
 }
@@ -340,7 +343,7 @@ function Mark() {
 function LiveCheck() {
   return (
     <figure className={s.figure}>
-      <div className={`${s.mock} ${s.checkCard}`} aria-label="Illustration of an AI answer that names three competitors and not your brand">
+      <div className={`${s.mock} ${s.checkCard}`} data-tilt="4" aria-label="Illustration of an AI answer that names three competitors and not your brand">
         <div className={s.mockHead}>
           <span className={s.chip}>ChatGPT</span>
           <span className={s.muted}>Checking 5 answers</span>
@@ -364,7 +367,7 @@ function LiveCheck() {
           <span className={s.muted}>Competitor A named in 5 of 5</span>
         </div>
       </div>
-      <div className={`${s.mock} ${s.fix}`} aria-label="Illustration of a fix confirmed live">
+      <div className={`${s.mock} ${s.fix}`} data-tilt="4" aria-label="Illustration of a fix confirmed live">
         <div className={s.mockHead}>
           <strong>Fix</strong>
           <span className={s.muted}>robots.txt</span>
@@ -390,7 +393,7 @@ function LiveCheck() {
 function MetricsIllustration() {
   return (
     <figure className={s.figure}>
-      <div className={`${s.mock} ${s.report}`} aria-label="Illustration of the metrics tiles on the Today page">
+      <div className={`${s.mock} ${s.report}`} data-tilt="4" aria-label="Illustration of the metrics tiles on the Today page">
         <div className={s.mockHead}>
           <strong>Today</strong>
           <span className={s.muted}>Last 28 days</span>
@@ -399,25 +402,40 @@ function MetricsIllustration() {
         <div className={s.metricGrid}>
           <div>
             <span className={s.metricLabel}>AI visibility</span>
-            <span className={s.metricValue}>34%</span>
-            <span className={`${s.metricChange} ${s.metricUp}`}>+9 pts</span>
+            <span className={s.metricValue}>
+              <CountUp to={34} suffix="%" />
+            </span>
+            <span className={`${s.metricChange} ${s.metricUp} ${s.marked}`}>
+              +9 pts
+              <svg className={s.inkMark} viewBox="0 0 70 34" aria-hidden="true">
+                <path d="M8,17 C6,6 30,1 50,4 C67,6.5 66,21 51,27 C33,33.5 7,30 5,18" />
+              </svg>
+            </span>
           </div>
           <div>
             <span className={s.metricLabel}>Share of voice</span>
-            <span className={s.metricValue}>22%</span>
+            <span className={s.metricValue}>
+              <CountUp to={22} suffix="%" />
+            </span>
           </div>
           <div>
             <span className={s.metricLabel}>Search clicks</span>
-            <span className={s.metricValue}>2,480</span>
+            <span className={s.metricValue}>
+              <CountUp to={2480} locale />
+            </span>
             <span className={`${s.metricChange} ${s.metricUp}`}>+312</span>
           </div>
           <div>
             <span className={s.metricLabel}>Blindspots confirmed</span>
-            <span className={s.metricValue}>6</span>
+            <span className={s.metricValue}>
+              <CountUp to={6} />
+            </span>
           </div>
           <div>
             <span className={s.metricLabel}>Critical site issues</span>
-            <span className={s.metricValue}>1</span>
+            <span className={s.metricValue}>
+              <CountUp to={1} />
+            </span>
           </div>
         </div>
         <p className={s.summary}>Same layout, same five numbers, from your first completed check.</p>
@@ -434,7 +452,7 @@ function ReportIllustration() {
   const line = points.map((p, i) => `${(i * 100) / (points.length - 1)},${38 - ((p - lo) / (hi - lo)) * 32}`).join(' ')
   return (
     <figure className={s.figure}>
-      <div className={`${s.mock} ${s.report}`} aria-label="Illustration of a CMO report with an AI visibility trend">
+      <div className={`${s.mock} ${s.report}`} data-tilt="4" aria-label="Illustration of a CMO report with an AI visibility trend">
         <div className={s.mockHead}>
           <strong>AI visibility report</strong>
           <span className={s.muted}>Q1 FY2027</span>
@@ -443,12 +461,16 @@ function ReportIllustration() {
         <div className={s.tiles}>
           <div>
             <span className={s.muted}>Mentioned in</span>
-            <strong>38% of answers</strong>
+            <strong>
+              <CountUp to={38} suffix="% of answers" />
+            </strong>
             <span className={s.goodText}>up 16 pts</span>
           </div>
           <div>
             <span className={s.muted}>Blindspots closed</span>
-            <strong>7</strong>
+            <strong>
+              <CountUp to={7} />
+            </strong>
             <span className={s.muted}>of 12 opened</span>
           </div>
         </div>

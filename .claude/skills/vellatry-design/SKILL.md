@@ -74,8 +74,10 @@ Lime on white text fails contrast: lime is always a background under ink.
 ## Motion
 
 Motion is part of the marketing pages and a light touch in the app. CSS keyframes and
-transitions only. The one exception is a small client component, when motion depends
-on state (the tour's autoplay, a count-up).
+transitions only, with three small client components for what CSS cannot read:
+`ProductTour` (autoplay state), `CountUp` (a number counting when it scrolls into view)
+and `PointerEffects` (`data-tilt` leans toward the cursor, `data-lens` tints the hero's
+graph paper under it). Pointer effects are mouse-only and never run with reduced motion.
 
 - **Every animation runs from a hidden or partial state to the element's ordinary
   style** (`from` keyframes only, `animation-fill-mode: both`). A browser without the

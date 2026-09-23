@@ -13,6 +13,19 @@
   color: var(--ink);
   min-height: 100vh;
   overflow-x: clip;
+  position: relative;
+}
+
+/* Paper grain: a fixed, near-invisible noise field so the background reads as a
+   physical sheet rather than a flat fill. */
+.page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .page a:focus-visible,
@@ -385,14 +398,31 @@
 
 /* ---- Sections -------------------------------------------------------------------- */
 
-.problem { background: var(--paper-2); }
+.problem { background: var(--paper-2); position: relative; }
+/* Torn edges: the band reads as a sheet torn from a report. The mask cuts the edge;
+   the bottom one is the same tear flipped and shifted so the two don't match. */
+.problem::before,
+.problem::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 12px;
+  background: var(--paper-2);
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 12' preserveAspectRatio='none'%3E%3Cpath d='M0 12L0 6L7 3L12 8L19 4L25 9L31 2L38 7L44 5L51 10L57 3L64 6L70 1L77 8L83 4L90 9L97 5L103 2L110 8L116 4L123 7L129 2L136 9L142 5L149 8L155 3L160 6L160 12Z'/%3E%3C/svg%3E");
+  mask-size: 160px 12px;
+  mask-repeat: repeat-x;
+  pointer-events: none;
+}
+.problem::before { top: -11px; }
+.problem::after { bottom: -11px; transform: scaleY(-1); mask-position: 70px 0; }
 .narrow { max-width: 900px; margin: 0 auto; padding: 104px var(--gutter); }
 .narrow .h2 { font-size: clamp(30px, 3.8vw, 50px); }
 .narrow .body { max-width: 44em; font-size: 18px; }
 
-.section { max-width: var(--max); margin: 0 auto; padding: 104px var(--gutter); }
+.section { max-width: var(--max); margin: 0 auto; padding: 104px var(--gutter); scroll-margin-top: 76px; }
 .sectionHead { max-width: 760px; margin-bottom: 48px; }
-.product { background: linear-gradient(180deg, var(--bg) 0%, #efe9dc 100%); }
+.product { background: linear-gradient(180deg, var(--bg) 0%, #efe9dc 100%); scroll-margin-top: 76px; }
 
 .steps {
   list-style: none;
@@ -497,6 +527,9 @@
 .metricValue { font-size: 21px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .metricChange { font-size: 12px; font-weight: 700; }
 .metricUp { color: var(--good); }
+.marked { position: relative; display: inline-block; }
+.inkMark { position: absolute; top: -9px; left: -13px; width: 76px; height: 36px; overflow: visible; pointer-events: none; }
+.inkMark path { fill: none; stroke: var(--coral); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 .report { transform: rotate(-1.2deg); }
 .version { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--lime-ink); background: var(--lime-soft); border-radius: 999px; padding: 2px 9px; }
@@ -553,6 +586,41 @@
   color: var(--muted);
 }
 
+/* ---- Pointer: tilt and the hero lens (components/PointerEffects.tsx) ------------
+   Tilt uses the separate `rotate` property so it stacks on the scroll reveals and hover
+   lifts that already animate `transform`. Mouse only, and never with reduced motion. */
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .figure,
+  .steps,
+  .principles { perspective: 1400px; }
+  .page [data-tilt] {
+    rotate: var(--tilt-axis, 0 0 1) var(--tilt, 0deg);
+    transition: rotate 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .steps li[data-tilt] {
+    transition: rotate 0.5s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  /* The graph paper under the cursor turns highlighter lime. It drifts with .grid so
+     the lines stay aligned. */
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-color: color-mix(in srgb, var(--lime) 22%, transparent);
+    background-image:
+      linear-gradient(color-mix(in srgb, var(--lime-ink) 30%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--lime-ink) 30%, transparent) 1px, transparent 1px);
+    background-size: 36px 36px;
+    mask-image: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%), #000, transparent);
+    opacity: var(--lens, 0);
+    transition: opacity 0.4s ease;
+    animation: drift 40s linear infinite;
+  }
+}
+
 /* ---- Scroll reveals: progressive enhancement ----------------------------------- */
 
 @supports (animation-timeline: view()) {
@@ -567,6 +635,16 @@
   .metricGrid > div:nth-child(3) { animation-range: entry 25% entry 65%; }
   .metricGrid > div:nth-child(4) { animation-range: entry 30% entry 70%; }
   .metricGrid > div:nth-child(5) { animation-range: entry 35% entry 75%; }
+  .inkMark path {
+    stroke-dasharray: 160;
+    stroke-dashoffset: 160;
+    animation: draw linear both;
+    animation-timeline: view();
+    animation-range: entry 30% entry 60%;
+  }
+  @keyframes draw {
+    to { stroke-dashoffset: 0; }
+  }
   @keyframes tilt {
     from { transform: rotate(4deg) translateY(40px); opacity: 0.4; }
   }
@@ -635,6 +713,7 @@
   .wordmark:hover .mark { animation: none; }
   .report { animation: none; }
   .metricGrid > div { animation: none; }
+  .inkMark path { animation: none; stroke-dashoffset: 0; }
   .tickerTrack { animation: none; }
   .tickerWindow { overflow-x: auto; }
   .primary:hover,
