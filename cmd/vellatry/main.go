@@ -30,6 +30,7 @@ import (
 	"github.com/UncleSon21/vellatry/internal/dataforseo"
 	"github.com/UncleSon21/vellatry/internal/domainevents"
 	"github.com/UncleSon21/vellatry/internal/email"
+	"github.com/UncleSon21/vellatry/internal/embed"
 	"github.com/UncleSon21/vellatry/internal/googleauth"
 	"github.com/UncleSon21/vellatry/internal/pdf"
 	"github.com/UncleSon21/vellatry/internal/platform/budget"
@@ -245,6 +246,14 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 		return err
 	}
 	defer closeWH()
+
+	embedding := &workers.Embeddings{Pool: pool, Logger: log}
+	if cfg.EmbedURL != "" {
+		embedding.Client = &embed.Client{URL: cfg.EmbedURL}
+	} else {
+		log.Info("EMBED_URL not set: duplicate-topic suggestions are off (see ml/embed/README.md)")
+	}
+	embedding.Register(ws)
 
 	ask := &workers.Agent{Pool: pool, Logger: log, Planner: drafter, Bus: events.NewBus(nil, domainevents.Subscriptions()...)}
 	ask.Register(ws)

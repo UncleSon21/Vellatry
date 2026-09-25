@@ -3,7 +3,11 @@
 // api can import it (internal/archtest enforces that).
 package jobargs
 
-import "github.com/riverqueue/river"
+import (
+	"time"
+
+	"github.com/riverqueue/river"
+)
 
 // VisibilityPlanAll fans planning out to every tenant with a brand.
 type VisibilityPlanAll struct{}
@@ -259,6 +263,20 @@ type KeywordRun struct {
 }
 
 func (KeywordRun) Kind() string { return "keyword_run" }
+
+// TopicEmbed embeds a tenant's topics and flags the ones that look like a topic the
+// team already tracks. Cheap and idempotent: it only embeds what has changed.
+type TopicEmbed struct {
+	OrgID string `json:"org_id"`
+}
+
+func (TopicEmbed) Kind() string { return "topic_embed" }
+
+// InsertOpts collapses the burst that a finished keyword run or a wizard adding five
+// topics would otherwise cause: one pass a minute per tenant is plenty.
+func (TopicEmbed) InsertOpts() river.InsertOpts {
+	return river.InsertOpts{UniqueOpts: river.UniqueOpts{ByArgs: true, ByPeriod: time.Minute}}
+}
 
 // KeywordSERPCollect collects one keyword's search results.
 type KeywordSERPCollect struct {

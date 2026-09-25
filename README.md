@@ -76,9 +76,12 @@ blindspot into a fix whose outcome is measured.
   Clerk is not loaded and the api's header sign-in is used. The app starts at `/today`.
 - **Embeddings (`ml/embed`, `internal/embed`):** a pinned, pretrained model
   (BAAI/bge-small-en-v1.5, MIT) behind a small private service, so the worker can tell
-  when two topics mean the same thing. Inference only: nothing learns from customer
-  data, and a similarity is a suggestion for a person, never a number in a report. The
-  duplicate threshold was measured, not guessed (`embed.SameTopic`).
+  when two topics mean the same thing. After keyword research or a new topic, the
+  worker embeds what changed and marks a proposed topic that looks like one the team
+  already tracks; the Topics page says so beside it, and approving or skipping stays
+  with the team. Inference only: nothing learns from customer data, and a similarity is
+  a suggestion, never a number in a report. The threshold was measured, not guessed
+  (`embed.SameTopic`).
 - **Design:** "paper and highlighter": Archivo throughout, warm paper, lime for your
   mentions and coral for a competitor's. The landing page shows the product itself in a
   self-playing tour (Today, a blindspot, Test my setup, Fixes) and plays a live check in

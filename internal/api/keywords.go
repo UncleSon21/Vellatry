@@ -150,16 +150,25 @@ type topicDetail struct {
 	Issues      json.RawMessage       `json:"issues"`
 	Keywords    []keywords.KeywordRow `json:"keywords,omitempty"`
 	UpdatedAt   time.Time             `json:"updated_at"`
+	// A topic this one looks like, if any: a suggestion from the embedding job for a
+	// person to act on, never a decision. SimilarChecked distinguishes "checked, and
+	// it is new" from "not looked at yet".
+	SimilarTo      *string  `json:"similar_to"`
+	SimilarName    *string  `json:"similar_name"`
+	SimilarScore   *float32 `json:"similar_score"`
+	SimilarChecked bool     `json:"similar_checked"`
 }
 
 const topicDetailCols = `t.id::text, t.name, t.source, t.demand_monthly, t.status, t.created_at,
 	(SELECT count(*) FROM prompts p WHERE p.topic_id = t.id AND p.status <> 'rejected')::int,
-	t.intent, t.keyword_count, t.page_url, t.page_source, t.page_kind, t.opportunity, t.issues, t.updated_at`
+	t.intent, t.keyword_count, t.page_url, t.page_source, t.page_kind, t.opportunity, t.issues, t.updated_at,
+	t.similar_to::text, (SELECT s.name FROM topics s WHERE s.id = t.similar_to), t.similar_score, t.similar_checked_at IS NOT NULL`
 
 func scanTopicDetail(r pgx.Row) (topicDetail, error) {
 	var d topicDetail
 	err := r.Scan(&d.ID, &d.Name, &d.Source, &d.DemandMonthly, &d.Status, &d.CreatedAt, &d.Prompts,
-		&d.Intent, &d.KeywordN, &d.PageURL, &d.PageSource, &d.PageKind, &d.Opportunity, &d.Issues, &d.UpdatedAt)
+		&d.Intent, &d.KeywordN, &d.PageURL, &d.PageSource, &d.PageKind, &d.Opportunity, &d.Issues, &d.UpdatedAt,
+		&d.SimilarTo, &d.SimilarName, &d.SimilarScore, &d.SimilarChecked)
 	return d, err
 }
 

@@ -18,6 +18,11 @@ type Topic = {
   opportunity: { score?: number; gap?: number; potential?: number; current?: number; difficulty?: number | null }
   issues: { kind: string; detail: string; pages?: string[] }[]
   prompts: number
+  // A topic this one looks like, from the embedding job. A suggestion to read, not a
+  // decision: approving or skipping stays with the team.
+  similar_to: string | null
+  similar_name: string | null
+  similar_score: number | null
 }
 type Run = { id: number; status: string; trigger: string; started_at: string; stats: Record<string, number> }
 
@@ -107,6 +112,12 @@ export default function TopicsPage() {
                 {t.intent ? ` · ${t.intent}` : ''}
                 {t.prompts ? ` · ${num(t.prompts)} questions tracked` : ''}
               </div>
+              {t.similar_name && (
+                <div style={{ fontSize: 13, marginTop: 4 }}>
+                  <Pill tone="warn">looks like “{t.similar_name}”</Pill>{' '}
+                  <span className="muted">which you already track. Skip this one unless it is genuinely different.</span>
+                </div>
+              )}
             </span>,
             num(t.demand_monthly),
             t.opportunity?.gap ? num(Math.round(t.opportunity.gap)) : '-',

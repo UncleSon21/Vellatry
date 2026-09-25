@@ -173,6 +173,14 @@ func Subscriptions() []events.Subscription {
 			},
 		},
 		{
+			// Keeps topic vectors current and points out a proposed topic that looks
+			// like one the team already tracks. Does nothing without an embedding
+			// service, and never decides anything on its own.
+			Name:  "embed-topics",
+			Kinds: []string{KeywordRunCompleted, TopicAdded},
+			Job:   func(s events.Stored) river.JobArgs { return jobargs.TopicEmbed{OrgID: s.OrgID} },
+		},
+		{
 			Name:  "crawl-now",
 			Kinds: []string{SiteCrawlRequested},
 			Job:   func(s events.Stored) river.JobArgs { return jobargs.SiteCrawl{OrgID: s.OrgID, Trigger: "manual"} },
