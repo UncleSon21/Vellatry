@@ -191,7 +191,7 @@ export function Tester({ aliases, exclusions, brandName }: { aliases: string[]; 
           ))}
           <option value="paste">Paste your own text</option>
         </select>
-        <button className="primary" onClick={run} disabled={busy || (source === 'paste' && !text.trim())}>
+        <button onClick={run} disabled={busy || (source === 'paste' && !text.trim())}>
           {busy ? 'Testing…' : 'Test'}
         </button>
       </div>
@@ -307,7 +307,7 @@ export function Recognition({ brand, canEdit, onSaved, autoSave }: { brand: Bran
         hint={`Names people and AI use for ${brand.name}: a legal name, a product line, a common short form. ${brand.name} itself always counts.`}
         values={aliases}
         onChange={editAliases}
-        placeholder="e.g. Koala Sleep"
+        placeholder={`e.g. ${brand.name} Pty Ltd`}
         disabled={!canEdit}
       />
       <ListEditor
@@ -316,7 +316,7 @@ export function Recognition({ brand, canEdit, onSaved, autoSave }: { brand: Bran
         hint="Phrases containing your name that mean something else, so they never count as a mention."
         values={exclusions}
         onChange={editExclusions}
-        placeholder="e.g. koala bear"
+        placeholder="e.g. a place, a surname or an everyday phrase"
         disabled={!canEdit}
       />
       <ErrorNote error={error} />
@@ -443,8 +443,8 @@ export function CompetitorsEditor({ competitors, canEdit, onChange }: { competit
             void add()
           }}
         >
-          <input aria-label="Competitor name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Competitor name" style={{ minWidth: 200 }} />
-          <input aria-label="Competitor website" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="their website (optional)" style={{ minWidth: 200 }} />
+          <input aria-label="Competitor name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Competitor name" style={{ flex: 1, minWidth: 200 }} />
+          <input aria-label="Competitor website" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="their website (optional)" style={{ flex: 1, minWidth: 200 }} />
           <button type="submit" disabled={!name.trim() || busy}>
             Add competitor
           </button>

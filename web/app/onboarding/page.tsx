@@ -6,6 +6,7 @@ import { api, useApi, useEvents } from '@/lib/api'
 import { Card, ErrorNote, Loading } from '@/components/ui'
 import { Brand, BrandResponse, CompetitorsEditor, Differentiators, Recognition, TopicPicker } from '@/components/brand'
 import { Connections, GoogleConnect } from '@/components/GoogleConnect'
+import { Mark } from '@/components/Mark'
 import { num } from '@/lib/format'
 
 type Status = {
@@ -193,19 +194,24 @@ export default function OnboardingPage() {
 function Head() {
   return (
     <div className="row" style={{ marginBottom: 20 }}>
-      <div className="brandmark" style={{ padding: 0 }}>Vellatry</div>
+      <div className="brandmark" style={{ padding: 0 }}>
+        <Mark size={20} />
+        Vellatry
+      </div>
       <div className="spacer" />
       <span className="muted" style={{ fontSize: 13 }}>Setup takes about five minutes. Everything here can be changed later.</span>
     </div>
   )
 }
 
-function StepNav({ onBack, onNext, nextLabel = 'Next', busy }: { onBack?: () => void; onNext: () => void; nextLabel?: string; busy?: boolean }) {
+// `quiet` outlines the forward button on a step that has its own primary action
+// (Connect Google), so skipping never looks like the thing to do.
+function StepNav({ onBack, onNext, nextLabel = 'Next', busy, quiet }: { onBack?: () => void; onNext: () => void; nextLabel?: string; busy?: boolean; quiet?: boolean }) {
   return (
     <div className="row" style={{ marginTop: 8 }}>
       {onBack && <button onClick={onBack}>Back</button>}
       <div className="spacer" />
-      <button className="primary" onClick={onNext} disabled={busy}>
+      <button className={quiet ? undefined : 'primary'} onClick={onNext} disabled={busy}>
         {nextLabel}
       </button>
     </div>
@@ -265,18 +271,18 @@ function BrandStep({ status, onDone }: { status: Status; onDone: () => void }) {
         <ErrorNote error={error} />
         <div className="field">
           <label htmlFor="brand">Brand name</label>
-          <input id="brand" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Koala" required autoFocus />
+          <input id="brand" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your brand name" required autoFocus />
           <p className="sub hint">The name customers know you by. You can add other names later.</p>
         </div>
         <div className="field">
           <label htmlFor="domain">Website</label>
-          <input id="domain" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="e.g. koala.com" required />
+          <input id="domain" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="yourbrand.com.au" required />
           <p className="sub hint">Vellatry reads your home page to suggest topics and names, and checks the site for what stops AI citing it.</p>
         </div>
         {!status.org && (
           <div className="field">
             <label htmlFor="org">Organisation name (optional)</label>
-            <input id="org" value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder={name ? `${name} (leave blank to use this)` : 'e.g. Koala Sleep Pty Ltd'} />
+            <input id="org" value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder={name ? `${name} (leave blank to use this)` : 'Your company’s legal or trading name'} />
           </div>
         )}
       </Card>
@@ -306,7 +312,7 @@ function ConnectionsStep({ refresh, connected, onBack, onNext }: { refresh: numb
         <GoogleConnect list={list.data} returnTo="onboarding" onError={setError} onChanged={list.reload} />
       </Card>
       <p className="sub" style={{ fontSize: 13 }}>Asana and Slack can be connected later from Settings.</p>
-      <StepNav onBack={onBack} onNext={onNext} nextLabel={connected.length ? 'Next' : 'Skip for now'} />
+      <StepNav onBack={onBack} onNext={onNext} nextLabel={connected.length ? 'Next' : 'Skip for now'} quiet={!connected.length && Boolean(list.data?.google_available)} />
     </>
   )
 }
