@@ -33,6 +33,8 @@ body {
   font: 15px/1.55 var(--font-sans), -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 a { color: inherit; }
+/* Keyboard focus everywhere: the accent ring from the design rules. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
 .side { border-right: 1px solid var(--line); background: var(--panel); padding: 20px 12px; }
@@ -60,7 +62,7 @@ a { color: inherit; }
 
 /* min-width: 0 lets the grid column shrink below its widest table, so that table
    scrolls inside its card instead of stretching the page on a phone. */
-.main { padding: 24px 28px 64px; max-width: 1180px; min-width: 0; }
+.main { padding: 24px 28px 96px; max-width: 1180px; min-width: 0; }
 .pagehead { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
 h1 { font-size: 22px; margin: 0 0 4px; }
 .sub { color: var(--muted); font-size: 14px; margin: 0; }
@@ -119,7 +121,8 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 4px
 .notice.info { background: #f0f9ff; border: 1px solid #b9e6fe; }
 .notice.empty { background: var(--panel); color: var(--muted); }
 
-/* The agent: a panel that slides over the page it was asked from. */
+/* The agent: a panel that slides over the page it was asked from. Its button floats over
+   the bottom 64px of the screen; .main's 96px bottom padding lets a page scroll clear. */
 .askbtn { position: fixed; right: 24px; bottom: 24px; z-index: 20; box-shadow: 0 6px 20px rgba(16, 24, 40, 0.18); }
 .panel {
   position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 100%); background: var(--panel);
@@ -161,7 +164,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 4px
   .side[data-open] .sideuser { grid-column: 1 / -1; }
   .navlink { padding: 10px; }
   .navscrim { display: block; position: fixed; inset: 0; background: rgba(21, 23, 28, 0.28); animation: appear 0.2s ease both; }
-  .main { padding: 16px; }
+  .main { padding: 16px 16px 96px; }
 }
 
 /* Setup wizard: full screen, one column, no navigation until setup is done. */
