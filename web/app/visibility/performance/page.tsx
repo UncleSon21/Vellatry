@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useApi, useEvents } from '@/lib/api'
-import { Card, Chart, ErrorNote, Loading, MetricTile, RangePicker, Table } from '@/components/ui'
+import { Card, Chart, Empty, ErrorNote, MetricTile, RangePicker, Table } from '@/components/ui'
 import { dateRange, dec, engineName, num, pct, points } from '@/lib/format'
 
 type Metrics = { engine: string; answers: number; present: number; mentioned: number; visibility: number | null; share_of_voice: number | null; avg_position: number | null; sentiment: number | null }
@@ -31,6 +31,10 @@ export default function PerformancePage() {
   }
   const line = [...byDay.entries()].map(([day, a]) => ({ day, value: Math.round((a.sum / a.n) * 10) / 10 }))
   const prevEngine = new Map((prev.data?.by_engine ?? []).map((m) => [m.engine, m]))
+  const noAnswers =
+    cur.data?.overall.answers === 0 ? (
+      <Empty label="Waiting for answers">No answers were collected in this period. Vellatry asks your topics&apos; questions each day.</Empty>
+    ) : undefined
 
   return (
     <>
@@ -43,7 +47,6 @@ export default function PerformancePage() {
       </div>
 
       <ErrorNote error={cur.error} />
-      {cur.loading && <Loading />}
 
       <div className="tiles">
         <MetricTile
@@ -72,11 +75,13 @@ export default function PerformancePage() {
       </div>
 
       <Card title="Visibility over time" sub="Daily, weighted by how many answers each engine gave.">
-        <Chart points={line} unit="%" caption="AI visibility" />
+        <Chart of={cur} points={line} unit="%" caption="AI visibility" />
       </Card>
 
       <Card title="By engine" sub="Where the number comes from.">
         <Table
+          of={cur}
+          empty={noAnswers ?? 'No engine answered in this period.'}
           head={['Engine', 'Visibility', 'Change', 'Share of voice', 'Answers']}
           rows={(cur.data?.by_engine ?? []).map((m) => [
             engineName(m.engine),
@@ -90,6 +95,8 @@ export default function PerformancePage() {
 
       <Card title="You and your competitors" sub="Of every mention of a tracked brand, who gets them.">
         <Table
+          of={cur}
+          empty={noAnswers ?? 'Neither you nor a competitor you track was mentioned in this period.'}
           head={['Brand', 'Visibility', 'Share of voice', 'Answers mentioning']}
           rows={(cur.data?.entities ?? []).map((e) => [
             e.is_brand ? <strong key="n">{e.name} (you)</strong> : e.name,

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { api, useApi, useEvents } from '@/lib/api'
-import { Card, ErrorNote, Loading, Pill, Table } from '@/components/ui'
+import { Card, Empty, ErrorNote, Pill, Table } from '@/components/ui'
 import { when } from '@/lib/format'
 
 type Destination = { id: string; kind: string; name: string; config: { to?: string[] }; digest: boolean; status: string; status_detail: string | null }
@@ -59,7 +59,7 @@ export default function AutomationsPage() {
         <button onClick={() => setAdding(!adding)}>{adding ? 'Cancel' : 'Add a destination'}</button>
       </div>
 
-      <ErrorNote error={error ?? dests.error} />
+      <ErrorNote error={error ?? dests.error ?? watchers.error ?? notes.error} />
 
       {adding && (
         <Card title="Add a destination">
@@ -85,30 +85,32 @@ export default function AutomationsPage() {
       )}
 
       <Card title="Destinations" sub="A new one gets a test message straight away, so a wrong address shows up now rather than when it matters.">
-        {dests.loading ? (
-          <Loading />
-        ) : (
-          <Table
-            head={['Where', 'Kind', 'Digest', 'Status']}
-            empty="Nothing set up yet. Alerts stay in the dashboard until you add one."
-            rows={(dests.data?.destinations ?? []).map((d) => [
-              <span key="n">
-                {d.name}
-                {d.config?.to?.length ? <div className="muted" style={{ fontSize: 13 }}>{d.config.to.join(', ')}</div> : null}
-              </span>,
-              d.kind,
-              d.digest ? 'yes' : 'no',
-              <span key="s">
-                <Pill tone={d.status === 'active' ? 'good' : d.status === 'broken' ? 'bad' : undefined}>{d.status}</Pill>
-                {d.status_detail && <div className="muted" style={{ fontSize: 13 }}>{d.status_detail}</div>}
-              </span>,
-            ])}
-          />
-        )}
+        <Table
+          of={dests}
+          head={['Where', 'Kind', 'Digest', 'Status']}
+          empty={
+            <Empty label="Nowhere to send yet" tone="todo" action={adding ? undefined : <button onClick={() => setAdding(true)}>Add a destination</button>}>
+              Alerts stay in the dashboard until you add a Slack channel or an email address.
+            </Empty>
+          }
+          rows={(dests.data?.destinations ?? []).map((d) => [
+            <span key="n">
+              {d.name}
+              {d.config?.to?.length ? <div className="muted" style={{ fontSize: 13 }}>{d.config.to.join(', ')}</div> : null}
+            </span>,
+            d.kind,
+            d.digest ? 'yes' : 'no',
+            <span key="s">
+              <Pill tone={d.status === 'active' ? 'good' : d.status === 'broken' ? 'bad' : undefined}>{d.status}</Pill>
+              {d.status_detail && <div className="muted" style={{ fontSize: 13 }}>{d.status_detail}</div>}
+            </span>,
+          ])}
+        />
       </Card>
 
       <Card title="Watchers" sub="Rules Vellatry checks for you. Repeats are merged, and there is a cap on how many alerts an hour can carry.">
         <Table
+          of={watchers}
           head={['Watch for', 'When it fires', 'Delivery', '']}
           empty="No watchers."
           rows={(watchers.data?.watchers ?? []).map((w) => [
@@ -126,25 +128,27 @@ export default function AutomationsPage() {
       </Card>
 
       <Card title="What Vellatry has told you">
-        {notes.loading ? (
-          <Loading />
-        ) : (
-          <Table
-            head={['Alert', 'Delivery', 'When']}
-            empty="Nothing yet."
-            rows={(notes.data ?? []).map((n) => [
-              <span key="t">
-                <Pill tone={n.severity === 'critical' ? 'bad' : n.severity === 'warning' ? 'warn' : undefined}>{n.severity}</Pill> {n.title}
-                <div className="muted" style={{ fontSize: 13 }}>
-                  {n.body}
-                  {n.occurrences > 1 ? ` · seen ${n.occurrences} times` : ''}
-                </div>
-              </span>,
-              n.status,
-              when(n.last_seen_at),
-            ])}
-          />
-        )}
+        <Table
+          of={notes}
+          head={['Alert', 'Delivery', 'When']}
+          empty={
+            <Empty label="No alerts yet">
+              An alert appears here when a watcher fires: a drop in visibility, a competitor overtaking you, a critical site issue, a broken
+              connection or a confirmed blindspot.
+            </Empty>
+          }
+          rows={(notes.data ?? []).map((n) => [
+            <span key="t">
+              <Pill tone={n.severity === 'critical' ? 'bad' : n.severity === 'warning' ? 'warn' : undefined}>{n.severity}</Pill> {n.title}
+              <div className="muted" style={{ fontSize: 13 }}>
+                {n.body}
+                {n.occurrences > 1 ? ` · seen ${n.occurrences} times` : ''}
+              </div>
+            </span>,
+            n.status,
+            when(n.last_seen_at),
+          ])}
+        />
       </Card>
     </>
   )

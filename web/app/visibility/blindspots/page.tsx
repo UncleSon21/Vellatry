@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { api, useApi, useEvents } from '@/lib/api'
-import { Card, ErrorNote, Loading, Pill, Table } from '@/components/ui'
+import { Card, Empty, ErrorNote, Pill, Table } from '@/components/ui'
 import { dec, engineName, num, when } from '@/lib/format'
 
 type Blindspot = {
@@ -62,12 +62,21 @@ export default function BlindspotsPage() {
       </div>
 
       <ErrorNote error={error ?? list.error} />
-      {list.loading && <Loading />}
 
       <Card>
         <Table
+          of={list}
           head={['Question', 'Engine', 'What happens', 'Priority', 'Seen', '']}
-          empty={status === 'open' ? 'No blindspots. Vellatry keeps asking.' : `Nothing ${status}.`}
+          empty={
+            status === 'open' ? (
+              <Empty label="None open">
+                A question appears here when an engine leaves you out, or recommends a competitor, and five answers confirm it. Vellatry asks
+                your topics&apos; questions each day.
+              </Empty>
+            ) : (
+              `Nothing ${status}.`
+            )
+          }
           rows={(list.data ?? []).map((s) => [
             <span key="q">
               {s.prompt}

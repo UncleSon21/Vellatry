@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { api, useApi, useEvents } from '@/lib/api'
-import { Card, ErrorNote, Loading, Pill, Table } from '@/components/ui'
+import { Card, Empty, ErrorNote, Pill, Table } from '@/components/ui'
 import { day, when } from '@/lib/format'
 
 type Series = { id: string; name: string; period: string; sections: string[]; recipients: string[]; auto_draft: boolean }
@@ -33,6 +33,8 @@ export default function ReportsPage() {
     }
   }
 
+  const hasSeries = (series.data?.series ?? []).length > 0
+
   const draft = async (id: string) => {
     setError(null)
     try {
@@ -53,14 +55,14 @@ export default function ReportsPage() {
             no data is left out rather than explained away.
           </p>
         </div>
-        {(series.data?.series ?? []).length === 0 && (
+        {series.data && !hasSeries && (
           <button className="primary" onClick={createSeries} disabled={busy}>
             Set up a monthly report
           </button>
         )}
       </div>
 
-      <ErrorNote error={error ?? reports.error} />
+      <ErrorNote error={error ?? reports.error ?? series.error} />
 
       {hub.data && (
         <div className="notice info">
@@ -70,31 +72,48 @@ export default function ReportsPage() {
       )}
 
       <Card title="Reports">
-        {reports.loading ? (
-          <Loading />
-        ) : (
-          <Table
-            head={['Report', 'Period', 'Status', 'Updated']}
-            empty="No reports yet."
-            rows={(reports.data ?? []).map((r) => [
-              <Link key="t" href={`/reports/${r.id}`}>
-                {r.title}
-              </Link>,
-              r.label,
-              <span key="s">
-                <Pill tone={r.status === 'published' ? 'good' : r.status === 'withdrawn' ? 'bad' : undefined}>{r.status}</Pill>
-                {r.version > 1 ? <span className="muted"> revision {r.version}</span> : null}
-              </span>,
-              r.published_at ? day(r.published_at) : when(r.updated_at),
-            ])}
-          />
-        )}
+        <Table
+          of={reports}
+          head={['Report', 'Period', 'Status', 'Updated']}
+          empty={
+            <Empty label="No reports yet">
+              {hasSeries
+                ? 'Vellatry drafts one once a period’s data has settled. To start one now, use “Draft the latest period” on a series below.'
+                : 'Reports appear here once a series is set up below.'}
+            </Empty>
+          }
+          rows={(reports.data ?? []).map((r) => [
+            <Link key="t" href={`/reports/${r.id}`}>
+              {r.title}
+            </Link>,
+            r.label,
+            <span key="s">
+              <Pill tone={r.status === 'published' ? 'good' : r.status === 'withdrawn' ? 'bad' : undefined}>{r.status}</Pill>
+              {r.version > 1 ? <span className="muted"> revision {r.version}</span> : null}
+            </span>,
+            r.published_at ? day(r.published_at) : when(r.updated_at),
+          ])}
+        />
       </Card>
 
       <Card title="Series" sub="What goes in each report, how often, and who is told when one is published.">
         <Table
+          of={series}
           head={['Series', 'Period', 'Sections', 'Recipients', '']}
-          empty="No series yet."
+          empty={
+            <Empty
+              label="No series yet"
+              tone="todo"
+              action={
+                <button onClick={createSeries} disabled={busy}>
+                  Set up a monthly report
+                </button>
+              }
+            >
+              A series is a report that repeats: monthly, quarterly or by financial year. Vellatry drafts each one when its period&apos;s data
+              has settled.
+            </Empty>
+          }
           rows={(series.data?.series ?? []).map((s) => [
             s.name,
             s.period.replace(/_/g, ' '),

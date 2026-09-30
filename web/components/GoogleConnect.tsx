@@ -76,6 +76,7 @@ export function GoogleConnect({ list, returnTo, onError, onChanged, onDisconnect
       {google?.config?.sites && (
         <Table
           head={['Search Console property', '']}
+          empty="This Google account has no Search Console properties."
           rows={google.config.sites.map((s) => [
             s.siteUrl,
             <button key="c" className={byKind.get('search_console')?.config?.property === s.siteUrl ? 'primary' : ''} onClick={() => choose('search_console', s.siteUrl)}>
@@ -88,6 +89,7 @@ export function GoogleConnect({ list, returnTo, onError, onChanged, onDisconnect
         <div style={{ marginTop: 12 }}>
           <Table
             head={['Analytics property', '']}
+            empty="This Google account has no Analytics 4 properties."
             rows={google.config.properties.map((p) => [
               p.name ?? p.id,
               <button key="c" className={byKind.get('ga4')?.config?.property === p.id ? 'primary' : ''} onClick={() => choose('ga4', p.id)}>

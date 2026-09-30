@@ -412,7 +412,13 @@ export function CompetitorsEditor({ competitors, canEdit, onChange }: { competit
     <>
       <ErrorNote error={error} />
       {competitors.length === 0 ? (
-        <Empty>No competitors yet.</Empty>
+        canEdit ? (
+          <Empty label="No competitors yet" tone="todo">
+            Add the brands you lose to, and Vellatry counts their mentions beside yours.
+          </Empty>
+        ) : (
+          <Empty>No competitors yet.</Empty>
+        )
       ) : (
         <table style={{ marginBottom: 14 }}>
           <tbody>

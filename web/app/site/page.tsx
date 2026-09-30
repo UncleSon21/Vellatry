@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { api, useApi, useEvents } from '@/lib/api'
-import { Card, ErrorNote, Loading, Pill, Table, Tile } from '@/components/ui'
+import { Card, Empty, ErrorNote, Pill, Table, Tile } from '@/components/ui'
 import { day, num } from '@/lib/format'
 
 type Crawl = { id: number; status: string; started_at: string; finished_at: string | null; pages: number; error: string | null; summary: { home?: string; llms_txt?: boolean; ai_access?: { agent: string; product: string; purpose: string; blocked: boolean }[]; partial?: boolean } }
@@ -44,6 +44,7 @@ export default function SitePage() {
   }
 
   const running = summary.data?.latest?.status === 'running'
+  const crawled = Boolean(summary.data?.last_done)
   const access = summary.data?.last_done?.summary?.ai_access ?? []
 
   return (
@@ -58,23 +59,42 @@ export default function SitePage() {
         </button>
       </div>
 
-      <ErrorNote error={error ?? summary.error} />
-      {summary.loading && <Loading />}
+      <ErrorNote error={error ?? summary.error ?? findings.error} />
       {summary.data?.latest?.status === 'failed' && (
         <div className="notice error">The last crawl could not finish: {summary.data.latest.error}</div>
       )}
 
       <div className="tiles">
-        <Tile label="Critical issues" value={summary.data ? num(summary.data.open_by_severity?.critical ?? 0) : '-'} />
-        <Tile label="Warnings" value={summary.data ? num(summary.data.open_by_severity?.warning ?? 0) : '-'} />
-        <Tile label="Pages crawled" value={summary.data ? num(summary.data.last_done?.pages ?? 0) : '-'} change={summary.data?.last_done?.finished_at ? day(summary.data.last_done.finished_at) : undefined} />
-        <Tile label="llms.txt" value={summary.data ? (summary.data.last_done?.summary?.llms_txt ? 'Published' : 'Not published') : '-'} />
+        {/* '-' until there has been a crawl: a site nobody has looked at has no "0 issues". */}
+        <Tile label="Critical issues" value={crawled ? num(summary.data?.open_by_severity?.critical ?? 0) : '-'} />
+        <Tile label="Warnings" value={crawled ? num(summary.data?.open_by_severity?.warning ?? 0) : '-'} />
+        <Tile label="Pages crawled" value={crawled ? num(summary.data?.last_done?.pages ?? 0) : '-'} change={summary.data?.last_done?.finished_at ? day(summary.data.last_done.finished_at) : undefined} />
+        <Tile label="llms.txt" value={crawled ? (summary.data?.last_done?.summary?.llms_txt ? 'Published' : 'Not published') : '-'} />
       </div>
 
       <Card title="AI crawler access" sub="The crawlers that read pages to answer questions. Blocking one keeps you out of its answers.">
         <Table
+          of={summary}
           head={['Crawler', 'Used by', 'Purpose', 'Access']}
-          empty="Crawl the site to see which crawlers it allows."
+          empty={
+            running ? (
+              <Empty label="Crawling now">Results appear here when the crawl finishes.</Empty>
+            ) : crawled ? (
+              'The last crawl recorded no AI crawler rules.'
+            ) : (
+              <Empty
+                label="Not crawled yet"
+                tone="todo"
+                action={
+                  <button onClick={crawl} disabled={busy}>
+                    Crawl now
+                  </button>
+                }
+              >
+                A crawl reads your robots.txt and shows which AI crawlers it lets in.
+              </Empty>
+            )
+          }
           rows={access.map((a) => [
             a.agent,
             a.product,
@@ -88,8 +108,17 @@ export default function SitePage() {
 
       <Card title="Open issues" sub="Found by Vellatry's own crawl, most serious first.">
         <Table
+          of={findings}
           head={['Issue', 'Page', 'Severity', '']}
-          empty="Nothing open. The site is in good shape."
+          empty={
+            crawled ? (
+              <Empty label="All clear" tone="good">
+                No open issues. Vellatry crawls the site again each week, and anything it finds appears here.
+              </Empty>
+            ) : (
+              'Issues appear here after the first crawl.'
+            )
+          }
           rows={(findings.data ?? []).map((f) => [
             <span key="m">
               {f.message}

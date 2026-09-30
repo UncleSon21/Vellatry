@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useApi, useEvents } from '@/lib/api'
-import { Card, ErrorNote, Empty, Loading, MetricTile, Pill, Table } from '@/components/ui'
+import { Card, ErrorNote, Empty, MetricTile, Pill, Table, Unloaded } from '@/components/ui'
 import { change, day, dec, num, pct, points, when } from '@/lib/format'
 import { dateRange } from '@/lib/format'
 
@@ -34,7 +34,33 @@ export default function Overview() {
   })
 
   const confirmed = (spots.data ?? []).filter((s) => s.confirmed)
+  const confirming = (spots.data ?? []).length - confirmed.length
+  const answers = perf.data?.overall.answers
   const critical = site.data?.open_by_severity?.critical ?? 0
+  // A count is only a count once something was measured: a site never crawled has no
+  // "0 critical issues", and a period Search Console has no data for has no "0 clicks".
+  const crawled = Boolean(site.data?.last_done)
+  const searched = (search.data?.current.days ?? 0) > 0
+
+  // No confirmed blindspots can mean four things; say which one it is.
+  const noBlindspots =
+    confirming > 0 ? (
+      <Empty label="Still confirming">
+        {confirming === 1 ? '1 possible blindspot is' : `${num(confirming)} possible blindspots are`} being checked. One counts once five answers
+        confirm it.
+      </Empty>
+    ) : answers === 0 ? (
+      <Empty label="Waiting for answers">
+        No answers were collected in the last 28 days. Vellatry asks your topics&apos; questions each day, and a blindspot appears here once five
+        answers confirm it.
+      </Empty>
+    ) : answers ? (
+      <Empty label="All clear" tone="good">
+        No confirmed blindspots. Vellatry keeps asking each day and lists one here once five answers confirm it.
+      </Empty>
+    ) : (
+      'No confirmed blindspots.'
+    )
 
   return (
     <>
@@ -45,8 +71,7 @@ export default function Overview() {
         </div>
       </div>
 
-      <ErrorNote error={perf.error} />
-      {perf.loading && <Loading what="Reading your data" />}
+      <ErrorNote error={perf.error ?? spots.error ?? notes.error ?? site.error} />
 
       <div className="tiles">
         <MetricTile
@@ -59,19 +84,20 @@ export default function Overview() {
         <MetricTile label="Share of voice" value={pct(perf.data?.overall.share_of_voice)} />
         <MetricTile
           label="Search clicks"
-          value={num(search.data?.current.clicks)}
+          value={searched ? num(search.data?.current.clicks) : '-'}
           current={search.data?.current.clicks}
           previous={search.data?.previous.clicks}
-          change={search.data ? change(search.data.current.clicks, search.data.previous.clicks) : ''}
+          change={searched && search.data ? change(search.data.current.clicks, search.data.previous.clicks) : ''}
         />
         <MetricTile label="Blindspots confirmed" value={spots.data ? num(confirmed.length) : '-'} current={confirmed.length} previous={0} higherIsBetter={false} />
-        <MetricTile label="Critical site issues" value={site.data ? num(critical) : '-'} current={critical} previous={0} higherIsBetter={false} />
+        <MetricTile label="Critical site issues" value={crawled ? num(critical) : '-'} current={critical} previous={0} higherIsBetter={false} />
       </div>
 
       <Card title="Blindspots to close" sub="Questions where an engine leaves you out, or names a competitor first." actions={<Link className="btn" href="/visibility/blindspots">All blindspots</Link>}>
         <Table
+          of={spots}
           head={['Question', 'Engine', 'What happens', 'Priority']}
-          empty="No confirmed blindspots. Vellatry keeps asking."
+          empty={noBlindspots}
           rows={confirmed.slice(0, 5).map((s) => [
             s.prompt,
             <span key="e" className="muted">{s.engine}</span>,
@@ -82,32 +108,40 @@ export default function Overview() {
       </Card>
 
       <Card title="What changed" sub="Alerts and the things Vellatry noticed for you." actions={<Link className="btn" href="/automations">Automations</Link>}>
-        {notes.loading ? (
-          <Loading />
-        ) : (notes.data ?? []).length === 0 ? (
-          <Empty>Nothing yet. Alerts appear here as watchers fire.</Empty>
-        ) : (
-          <Table
-            head={['What', 'When']}
-            rows={(notes.data ?? []).map((n) => [
-              <span key="t">
-                <Pill tone={n.severity === 'critical' ? 'bad' : n.severity === 'warning' ? 'warn' : undefined}>{n.severity}</Pill>{' '}
-                {n.link ? <Link href={n.link}>{n.title}</Link> : n.title}
-                <div className="muted" style={{ fontSize: 13 }}>{n.body}</div>
-              </span>,
-              when(n.last_seen_at),
-            ])}
-          />
-        )}
+        <Table
+          of={notes}
+          head={['What', 'When']}
+          empty={
+            <Empty label="No alerts yet">
+              An alert appears here when a watcher fires, such as a drop in visibility or a competitor overtaking you.
+            </Empty>
+          }
+          rows={(notes.data ?? []).map((n) => [
+            <span key="t">
+              <Pill tone={n.severity === 'critical' ? 'bad' : n.severity === 'warning' ? 'warn' : undefined}>{n.severity}</Pill>{' '}
+              {n.link ? <Link href={n.link}>{n.title}</Link> : n.title}
+              <div className="muted" style={{ fontSize: 13 }}>{n.body}</div>
+            </span>,
+            when(n.last_seen_at),
+          ])}
+        />
       </Card>
 
-      <Card title="Site" sub={site.data?.last_done?.finished_at ? `Last crawled ${day(site.data.last_done.finished_at)}, ${num(site.data.last_done.pages)} pages.` : 'Not crawled yet.'} actions={<Link className="btn" href="/site">Site</Link>}>
-        <div className="row">
-          <Pill tone={critical > 0 ? 'bad' : 'good'}>{num(critical)} critical</Pill>
-          <Pill tone="warn">{num(site.data?.open_by_severity?.warning ?? 0)} warnings</Pill>
-          <Pill>{num(site.data?.fixes_by_status?.proposed ?? 0)} fixes waiting</Pill>
-          <Pill tone="good">{num(site.data?.fixes_by_status?.live ?? 0)} fixes live</Pill>
-        </div>
+      <Card title="Site" sub={site.data?.last_done?.finished_at ? `Last crawled ${day(site.data.last_done.finished_at)}, ${num(site.data.last_done.pages)} pages.` : undefined} actions={<Link className="btn" href="/site">Site</Link>}>
+        {!site.data ? (
+          <Unloaded of={site} />
+        ) : !crawled ? (
+          <Empty label="Not crawled yet" tone="todo">
+            A crawl shows whether AI crawlers can read your site and what is in their way. Start one from the Site page.
+          </Empty>
+        ) : (
+          <div className="row">
+            <Pill tone={critical > 0 ? 'bad' : 'good'}>{num(critical)} critical</Pill>
+            <Pill tone="warn">{num(site.data.open_by_severity?.warning ?? 0)} warnings</Pill>
+            <Pill>{num(site.data.fixes_by_status?.proposed ?? 0)} fixes waiting</Pill>
+            <Pill tone="good">{num(site.data.fixes_by_status?.live ?? 0)} fixes live</Pill>
+          </div>
+        )}
       </Card>
     </>
   )

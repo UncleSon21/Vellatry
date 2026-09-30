@@ -136,7 +136,14 @@ graph paper under it). Pointer effects are mouse-only and never run with reduced
 - No exclamation marks, no emojis, no hype words (revolutionary, supercharge, unlock,
   seamless, 10x, game-changing).
 - Missing data is stated with its fix ("Search Console isn't connected. Connect it.").
-  An empty state says what will fill it.
+  An empty state says what will fill it: `<Empty label="Not crawled yet" tone="todo"
+  action={...}>` with a sentence that is true of the product, and the step that fills
+  it when there is one. `tone="good"` is for good news ("All clear"), and only when
+  something was actually measured; an empty filter just gets a sentence.
+- Empty is not loading, and not failed. Pass `of={theUseApiResult}` to `Table` and
+  `Chart` so they show loading or "Couldn't load this" until the data is in; the page's
+  one `ErrorNote` carries the reason. A count is `-` until something was measured: no
+  "0 issues" for a site never crawled, no "0 clicks" without Search Console data.
 - The model is never the hero. Code counts; a model may word a sentence.
 
 ## Accessibility

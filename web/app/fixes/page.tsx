@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { ReactNode, useState } from 'react'
+import Link from 'next/link'
 import { api, useApi, useEvents } from '@/lib/api'
-import { Card, ErrorNote, Loading, Pill, Table } from '@/components/ui'
+import { Card, Empty, ErrorNote, Pill, Table } from '@/components/ui'
 import { day } from '@/lib/format'
 
 type Fix = {
@@ -20,6 +21,18 @@ type Fix = {
 }
 
 const tone: Record<string, 'good' | 'bad' | 'warn' | undefined> = { live: 'good', measured: 'good', proposed: undefined, sent: 'warn', dismissed: undefined }
+
+// What each empty list is waiting for.
+const nothing: Record<string, ReactNode> = {
+  proposed: (
+    <Empty label="Nothing waiting" action={<Link className="btn" href="/site">Site</Link>}>
+      Vellatry writes a fix when a crawl finds something it can correct. Crawl again from the Site page to check.
+    </Empty>
+  ),
+  sent: 'Nothing sent. A fix you mark as sent waits here until the next crawl confirms it is live.',
+  live: 'Nothing live yet. A fix moves here when a crawl confirms the change is on your site.',
+  dismissed: 'Nothing dismissed.',
+}
 
 export default function FixesPage() {
   const [status, setStatus] = useState('proposed')
@@ -59,12 +72,12 @@ export default function FixesPage() {
       </div>
 
       <ErrorNote error={error ?? list.error} />
-      {list.loading && <Loading />}
 
       <Card>
         <Table
+          of={list}
           head={['Fix', 'Page', 'Status', '']}
-          empty={`Nothing ${status}.`}
+          empty={nothing[status]}
           rows={(list.data ?? []).map((f) => [
             <span key="t">
               <button onClick={() => setOpen(open === f.id ? null : f.id)} style={{ border: 0, background: 'none', padding: 0, textAlign: 'left', cursor: 'pointer' }}>

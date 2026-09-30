@@ -84,6 +84,7 @@ export default function ConnectionsPage() {
         {asana?.config?.projects && (
           <Table
             head={['Project new tasks go to', '']}
+            empty="This Asana account has no projects to send tasks to."
             rows={asana.config.projects.map((p) => [
               p.name,
               <button key="c" className={asana.config.project === p.gid ? 'primary' : ''} onClick={() => choose('asana', p.gid)}>

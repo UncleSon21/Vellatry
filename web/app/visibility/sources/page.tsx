@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useApi } from '@/lib/api'
-import { Card, ErrorNote, Loading, Pill, RangePicker, Table } from '@/components/ui'
+import { Card, Empty, ErrorNote, Pill, RangePicker, Table } from '@/components/ui'
 import { dateRange, num } from '@/lib/format'
 
 type SourceRow = { domain: string; type: string; citations: number; by_engine: Record<string, number> }
@@ -32,12 +32,16 @@ export default function SourcesPage() {
       </div>
 
       <ErrorNote error={list.error} />
-      {list.loading && <Loading />}
 
       <Card>
         <Table
+          of={list}
           head={['Website', 'Type', 'Citations']}
-          empty="No citations yet in the answers collected."
+          empty={
+            <Empty label="No citations in this period">
+              A website appears here when an engine cites it in an answer to one of your topics&apos; questions.
+            </Empty>
+          }
           rows={(list.data ?? []).map((s) => [
             s.domain,
             <Pill key="t" tone={s.type === 'owned' ? 'good' : s.type === 'competitor' ? 'bad' : undefined}>

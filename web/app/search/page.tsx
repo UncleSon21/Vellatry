@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useApi } from '@/lib/api'
-import { Card, Chart, ErrorNote, Loading, MetricTile, RangePicker, Table } from '@/components/ui'
+import { Card, Chart, Empty, ErrorNote, MetricTile, RangePicker, Table } from '@/components/ui'
 import { change, dateRange, dec, num, pct } from '@/lib/format'
 
 type Totals = { clicks: number; impressions: number; ctr: number | null; position: number | null; days: number }
@@ -26,6 +27,7 @@ export default function SearchPage() {
 
   const cur = overview.data?.current
   const prev = overview.data?.previous
+  const hasData = (cur?.days ?? 0) > 0
 
   return (
     <>
@@ -37,43 +39,50 @@ export default function SearchPage() {
         <RangePicker days={days} onChange={setDays} />
       </div>
 
-      <ErrorNote error={overview.error} />
-      {overview.loading && <Loading />}
+      <ErrorNote error={overview.error ?? queries.error ?? pages.error ?? referrals.error} />
       {overview.data && cur?.days === 0 && (
         <div className="notice info">Search Console has no data for this period. If you have just connected it, the first sync takes a few minutes.</div>
       )}
 
       <div className="tiles">
-        <MetricTile label="Clicks" value={num(cur?.clicks)} current={cur?.clicks} previous={prev?.clicks} change={cur && prev ? change(cur.clicks, prev.clicks) : ''} />
-        <MetricTile label="Impressions" value={num(cur?.impressions)} current={cur?.impressions} previous={prev?.impressions} change={cur && prev ? change(cur.impressions, prev.impressions) : ''} />
+        {/* '-' when Search Console has nothing for the period: that is no data, not 0 clicks. */}
+        <MetricTile label="Clicks" value={cur && hasData ? num(cur.clicks) : '-'} current={cur?.clicks} previous={prev?.clicks} change={cur && prev && hasData ? change(cur.clicks, prev.clicks) : ''} />
+        <MetricTile label="Impressions" value={cur && hasData ? num(cur.impressions) : '-'} current={cur?.impressions} previous={prev?.impressions} change={cur && prev && hasData ? change(cur.impressions, prev.impressions) : ''} />
         <MetricTile label="Click-through rate" value={pct(cur?.ctr)} current={cur?.ctr ?? null} previous={prev?.ctr ?? null} />
         <MetricTile label="Average position" value={dec(cur?.position)} current={cur?.position ?? null} previous={prev?.position ?? null} higherIsBetter={false} />
       </div>
 
       <Card title="Clicks over time">
-        <Chart points={(overview.data?.series ?? []).map((d) => ({ day: d.day, value: d.clicks }))} unit="clicks" caption="Clicks" />
+        <Chart of={overview} points={(overview.data?.series ?? []).map((d) => ({ day: d.day, value: d.clicks }))} unit="clicks" caption="Clicks" />
       </Card>
 
       <Card title="Visits from AI assistants" sub="Sessions where the referrer was ChatGPT, Perplexity, Gemini and the rest, from Google Analytics 4.">
         <Table
+          of={referrals}
           head={['Assistant', 'Sessions', 'Users', 'Key events']}
-          empty="No visits from AI assistants recorded in this period."
+          empty={
+            <Empty label="None in this period" action={<Link className="btn" href="/settings/connections">Connections</Link>}>
+              Google Analytics 4 recorded no sessions from an AI assistant. If you expected some, check that Analytics is connected.
+            </Empty>
+          }
           rows={(referrals.data?.totals ?? []).map((c) => [c.name, num(c.sessions), num(c.users), num(Math.round(c.key_events))])}
         />
       </Card>
 
       <Card title="Top searches this month">
         <Table
+          of={queries}
           head={['Search', 'Clicks', 'Impressions', 'CTR', 'Position']}
-          empty="No queries recorded for this month yet."
+          empty={<Empty label="Nothing recorded this month">Searches appear here as Search Console reports them.</Empty>}
           rows={(queries.data ?? []).map((q) => [q.key, num(q.clicks), num(q.impressions), pct(q.ctr), dec(q.position)])}
         />
       </Card>
 
       <Card title="Top pages this month">
         <Table
+          of={pages}
           head={['Page', 'Clicks', 'Impressions', 'CTR', 'Position']}
-          empty="No pages recorded for this month yet."
+          empty={<Empty label="Nothing recorded this month">Pages appear here as Search Console reports clicks on them.</Empty>}
           rows={(pages.data ?? []).map((p) => [p.key, num(p.clicks), num(p.impressions), pct(p.ctr), dec(p.position)])}
         />
       </Card>

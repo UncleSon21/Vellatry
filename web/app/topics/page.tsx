@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { api, useApi, useEvents } from '@/lib/api'
-import { Card, ErrorNote, Loading, Pill, Table } from '@/components/ui'
+import { Card, Empty, ErrorNote, Pill, Table } from '@/components/ui'
 import { num, when } from '@/lib/format'
 
 type Topic = {
@@ -98,12 +98,29 @@ export default function TopicsPage() {
         ))}
       </div>
 
-      {topics.loading && <Loading />}
-
       <Card>
         <Table
+          of={topics}
           head={['Topic', 'Searches a month', 'Clicks to win', 'Page', 'Issues', '']}
-          empty={status === 'proposed' ? 'No topics waiting. Run keyword research to find some.' : `No ${status.replace(/_/g, ' ')} topics.`}
+          empty={
+            status !== 'proposed' ? (
+              status === 'active' ? 'No active topics. Approve a proposed topic and Vellatry starts measuring it.' : 'Nothing marked out of scope.'
+            ) : working ? (
+              <Empty label="Research running">New topics appear here when the run finishes.</Empty>
+            ) : (
+              <Empty
+                label="None waiting"
+                action={
+                  <button onClick={research} disabled={busy}>
+                    Run keyword research
+                  </button>
+                }
+              >
+                Research proposes topics from your Search Console searches, the topics you already track and your competitors&apos; keywords.
+                Approving one starts Vellatry measuring it.
+              </Empty>
+            )
+          }
           rows={(topics.data ?? []).map((t) => [
             <span key="n">
               <strong>{t.name}</strong>

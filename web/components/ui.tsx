@@ -49,8 +49,35 @@ export function MetricTile({ label, value, current, previous, change, higherIsBe
   return <Tile label={label} value={value} change={change} tone={direction(current, previous, higherIsBetter)} />
 }
 
-export function Empty({ children }: { children: ReactNode }) {
-  return <div className="notice empty">{children}</div>
+// An empty place says what will fill it and, when there is one, offers the step that
+// does. `label` is the state at a glance ("All clear", "Not crawled yet") and `tone`
+// colours its dot: good news, something only the team can do, or a failure. A bare
+// sentence is enough for an empty filter ("Nothing dismissed.").
+export function Empty({ label, tone, action, children }: { label?: string; tone?: 'good' | 'todo' | 'bad'; action?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="emptystate">
+      {label && <div className={`emptylabel ${tone ?? ''}`}>{label}</div>}
+      <div className="emptytext">{children}</div>
+      {action && <div className="row emptyaction">{action}</div>}
+    </div>
+  )
+}
+
+// What a table or chart is drawn from (a useApi result). Until its data has arrived
+// there is nothing to call empty: it is still loading, or it failed, and the place says
+// which rather than claiming there is nothing. The reason for a failure is said once, by
+// the page's ErrorNote, not repeated in every card that shares the request.
+type Source = { data: unknown; error: string | null }
+
+export function Unloaded({ of }: { of: Source }) {
+  if (of.error) {
+    return (
+      <Empty label="Couldn't load this" tone="bad">
+        Reload the page to try again.
+      </Empty>
+    )
+  }
+  return <Loading />
 }
 
 export function ErrorNote({ error }: { error: string | null }) {
@@ -66,8 +93,11 @@ export function Pill({ tone, children }: { tone?: 'good' | 'bad' | 'warn'; child
   return <span className={`pill ${tone ?? ''}`}>{children}</span>
 }
 
-export function Table({ head, rows, empty }: { head: string[]; rows: ReactNode[][]; empty?: string }) {
-  if (rows.length === 0) return <Empty>{empty ?? 'Nothing here yet.'}</Empty>
+// `empty` is a sentence, or an <Empty> when there is more to say. Pass `of` so the table
+// shows loading or the error until its data is in, instead of its empty state.
+export function Table({ head, rows, empty, of }: { head: string[]; rows: ReactNode[][]; empty?: ReactNode; of?: Source }) {
+  if (of && of.data === null) return <Unloaded of={of} />
+  if (rows.length === 0) return typeof empty === 'string' || empty == null ? <Empty>{empty ?? 'Nothing here yet.'}</Empty> : <>{empty}</>
   return (
     <div className="tablewrap">
       <table>
@@ -98,9 +128,10 @@ export function Table({ head, rows, empty }: { head: string[]; rows: ReactNode[]
 
 // Chart draws one line. Inline SVG, no library: the shapes are simple and the page
 // stays fast and scriptless enough to print.
-export function Chart({ points, unit, caption }: { points: { day: string; value: number }[]; unit?: string; caption?: string }) {
+export function Chart({ points, unit, caption, of }: { points: { day: string; value: number }[]; unit?: string; caption?: string; of?: Source }) {
+  if (of && of.data === null) return <Unloaded of={of} />
   const usable = points.filter((p) => Number.isFinite(p.value))
-  if (usable.length < 2) return null
+  if (usable.length < 2) return <Empty label="Nothing to plot yet">A line appears here once this period has two days of data.</Empty>
   const w = 640
   const h = 160
   const pad = 8
