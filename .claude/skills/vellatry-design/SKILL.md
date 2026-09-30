@@ -104,7 +104,9 @@ graph paper under it). Pointer effects are mouse-only and never run with reduced
 ## Layout and spacing
 
 - Spacing steps: 4, 8, 12, 16, 24, 32, 48, 64, 96, 104 px.
-- The app: 232px sidebar, content max 1180px. Marketing: content max 1160px, sections
+- The app: 232px sidebar, content max 1180px. Below 900px the sidebar is a sticky bar
+  whose Menu button opens the same links as a sheet (Escape, a tap outside or picking a
+  link closes it). Marketing: content max 1160px, sections
   104px apart on desktop and 72px on mobile.
 - Radius: 16px for marketing cards, 8 to 10px for app cards, 6px for controls, 999px
   for pills and marketing buttons.
