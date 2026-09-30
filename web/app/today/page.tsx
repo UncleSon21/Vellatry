@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { useApi, useEvents } from '@/lib/api'
-import { Card, ErrorNote, Empty, MetricTile, Pill, Table, Unloaded } from '@/components/ui'
+import { Card, Chart, ErrorNote, Empty, MetricTile, Pill, Table, Unloaded } from '@/components/ui'
 import { change, day, dec, num, pct, points, when } from '@/lib/format'
 import { dateRange } from '@/lib/format'
+import { dailyVisibility, type VisibilityPoint } from '@/lib/visibility'
 
 type Metrics = { answers: number; visibility: number | null; share_of_voice: number | null; avg_position: number | null }
-type Performance = { overall: Metrics; by_engine: (Metrics & { engine: string })[] }
+type Performance = { overall: Metrics; by_engine: (Metrics & { engine: string })[]; series: VisibilityPoint[] }
 type Blindspot = { id: number; engine: string; kind: string; prompt: string; confirmed: boolean; competitor: string | null; priority: { score: number } }
 type SiteSummary = { last_done: { finished_at: string | null; pages: number } | null; open_by_severity: Record<string, number>; fixes_by_status: Record<string, number> }
 type SearchOverview = { current: { clicks: number; impressions: number; ctr: number | null; position: number | null; days: number }; previous: { clicks: number; impressions: number; days: number } }
@@ -93,19 +94,25 @@ export default function Overview() {
         <MetricTile label="Critical site issues" value={crawled ? num(critical) : '-'} current={critical} previous={0} higherIsBetter={false} />
       </div>
 
-      <Card title="Blindspots to close" sub="Questions where an engine leaves you out, or names a competitor first." actions={<Link className="btn" href="/visibility/blindspots">All blindspots</Link>}>
-        <Table
-          of={spots}
-          head={['Question', 'Engine', 'What happens', 'Priority']}
-          empty={noBlindspots}
-          rows={confirmed.slice(0, 5).map((s) => [
-            s.prompt,
-            <span key="e" className="muted">{s.engine}</span>,
-            s.kind === 'displacement' && s.competitor ? `${s.competitor} recommended instead` : 'leaves you out',
-            dec(s.priority?.score, 1),
-          ])}
-        />
-      </Card>
+      <div className="cols">
+        <Card title="Blindspots to close" sub="Questions where an engine leaves you out, or names a competitor first." actions={<Link className="btn" href="/visibility/blindspots">All blindspots</Link>}>
+          <Table
+            of={spots}
+            head={['Question', 'Engine', 'What happens', 'Priority']}
+            empty={noBlindspots}
+            rows={confirmed.slice(0, 5).map((s) => [
+              s.prompt,
+              <span key="e" className="muted">{s.engine}</span>,
+              s.kind === 'displacement' && s.competitor ? `${s.competitor} recommended instead` : 'leaves you out',
+              dec(s.priority?.score, 1),
+            ])}
+          />
+        </Card>
+
+        <Card title="AI visibility" sub="The last 28 days, weighted by how many answers each engine gave." actions={<Link className="btn" href="/visibility/performance">Performance</Link>}>
+          <Chart of={perf} points={dailyVisibility(perf.data?.series ?? [])} unit="%" caption="AI visibility" />
+        </Card>
+      </div>
 
       <Card title="What changed" sub="Alerts and the things Vellatry noticed for you." actions={<Link className="btn" href="/automations">Automations</Link>}>
         <Table

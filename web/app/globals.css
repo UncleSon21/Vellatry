@@ -68,10 +68,16 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 .sub { color: var(--muted); font-size: 14px; margin: 0; }
 
 .card { background: var(--panel); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+/* Two cards side by side where there is room (Today: what to close, and the trend). */
+.cols { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); column-gap: 16px; }
+@media (max-width: 1100px) {
+  .cols { grid-template-columns: minmax(0, 1fr); }
+}
 .card h2 { font-size: 16px; margin: 0 0 4px; }
 .card .sub { margin-bottom: 14px; }
 
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
+/* 180px, not 190: Today's five tiles then share one row at a 1280px window. */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .tile { background: var(--panel); border-radius: var(--radius); padding: 14px 16px; }
 .tile .label { font-size: 13px; color: var(--muted); }
 .tile .value { font-size: 26px; font-weight: 600; line-height: 1.25; font-variant-numeric: tabular-nums; }

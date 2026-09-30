@@ -4,9 +4,9 @@ import { useState } from 'react'
 import { useApi, useEvents } from '@/lib/api'
 import { Card, Chart, Empty, ErrorNote, MetricTile, RangePicker, Table } from '@/components/ui'
 import { dateRange, dec, engineName, num, pct, points } from '@/lib/format'
+import { dailyVisibility, type VisibilityPoint as Point } from '@/lib/visibility'
 
 type Metrics = { engine: string; answers: number; present: number; mentioned: number; visibility: number | null; share_of_voice: number | null; avg_position: number | null; sentiment: number | null }
-type Point = { day: string; engine: string; visibility: number | null; answers: number }
 type Entity = { name: string; is_brand: boolean; mentions: number; answers: number; visibility: number | null; share_of_voice: number | null }
 type Performance = { from: string; to: string; overall: Metrics; by_engine: Metrics[]; series: Point[]; entities: Entity[] }
 
@@ -20,16 +20,7 @@ export default function PerformancePage() {
     if (e.kind === 'visibility.answer.collected') cur.reload()
   })
 
-  // One line for the whole brand: each day's engines weighted by how many answers ran.
-  const byDay = new Map<string, { sum: number; n: number }>()
-  for (const p of cur.data?.series ?? []) {
-    if (p.visibility === null || p.answers === 0) continue
-    const acc = byDay.get(p.day) ?? { sum: 0, n: 0 }
-    acc.sum += p.visibility * p.answers
-    acc.n += p.answers
-    byDay.set(p.day, acc)
-  }
-  const line = [...byDay.entries()].map(([day, a]) => ({ day, value: Math.round((a.sum / a.n) * 10) / 10 }))
+  const line = dailyVisibility(cur.data?.series ?? [])
   const prevEngine = new Map((prev.data?.by_engine ?? []).map((m) => [m.engine, m]))
   const noAnswers =
     cur.data?.overall.answers === 0 ? (
