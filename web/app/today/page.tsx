@@ -64,8 +64,8 @@ export default function Overview() {
           previous={search.data?.previous.clicks}
           change={search.data ? change(search.data.current.clicks, search.data.previous.clicks) : ''}
         />
-        <MetricTile label="Blindspots confirmed" value={num(confirmed.length)} current={confirmed.length} previous={0} higherIsBetter={false} />
-        <MetricTile label="Critical site issues" value={num(critical)} current={critical} previous={0} higherIsBetter={false} />
+        <MetricTile label="Blindspots confirmed" value={spots.data ? num(confirmed.length) : '-'} current={confirmed.length} previous={0} higherIsBetter={false} />
+        <MetricTile label="Critical site issues" value={site.data ? num(critical) : '-'} current={critical} previous={0} higherIsBetter={false} />
       </div>
 
       <Card title="Blindspots to close" sub="Questions where an engine leaves you out, or names a competitor first." actions={<Link className="btn" href="/visibility/blindspots">All blindspots</Link>}>

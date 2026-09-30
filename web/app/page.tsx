@@ -152,7 +152,7 @@ export default function Landing() {
           <div className={`${s.sectionHead} ${s.reveal}`}>
             <p className={s.kicker}>How it works</p>
             <h2 id="how-title" className={s.h2}>
-              From a missing mention to a measured fix
+              From a missing mention to <span className={s.swipeLate}>a measured fix</span>
             </h2>
           </div>
           <ol className={s.steps}>

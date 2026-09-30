@@ -65,10 +65,10 @@ export default function SitePage() {
       )}
 
       <div className="tiles">
-        <Tile label="Critical issues" value={num(summary.data?.open_by_severity?.critical ?? 0)} />
-        <Tile label="Warnings" value={num(summary.data?.open_by_severity?.warning ?? 0)} />
-        <Tile label="Pages crawled" value={num(summary.data?.last_done?.pages ?? 0)} change={summary.data?.last_done?.finished_at ? day(summary.data.last_done.finished_at) : undefined} />
-        <Tile label="llms.txt" value={summary.data?.last_done?.summary?.llms_txt ? 'Published' : 'Not published'} />
+        <Tile label="Critical issues" value={summary.data ? num(summary.data.open_by_severity?.critical ?? 0) : '-'} />
+        <Tile label="Warnings" value={summary.data ? num(summary.data.open_by_severity?.warning ?? 0) : '-'} />
+        <Tile label="Pages crawled" value={summary.data ? num(summary.data.last_done?.pages ?? 0) : '-'} change={summary.data?.last_done?.finished_at ? day(summary.data.last_done.finished_at) : undefined} />
+        <Tile label="llms.txt" value={summary.data ? (summary.data.last_done?.summary?.llms_txt ? 'Published' : 'Not published') : '-'} />
       </div>
 
       <Card title="AI crawler access" sub="The crawlers that read pages to answer questions. Blocking one keeps you out of its answers.">

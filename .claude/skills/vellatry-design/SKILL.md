@@ -87,6 +87,12 @@ graph paper under it). Pointer effects are mouse-only and never run with reduced
   then the fix goes live. Prefer that over decorative motion.
 - Scroll reveals use `animation-timeline: view()` inside `@supports`: progressive
   enhancement, no observer scripts.
+- **In the app, motion is small and says something**: a page settles in when it opens,
+  the agent panel slides in, a chart wipes its line on, the nav marker moves to the
+  current page, and a tile whose number changes during a live refresh gets a fading
+  stroke of the highlighter. That last one keeps state inside `Tile` (no new component),
+  and `-` means not loaded, so a page must show `-` rather than `0` until its data
+  arrives. It all lives in the Motion section at the end of `globals.css`.
 - Loops (the ticker, a pulse) must pause on hover or stop within a few seconds, and
   the tour's autoplay stops for good once someone clicks.
 - **Reduced motion means no movement, not no change.** Under

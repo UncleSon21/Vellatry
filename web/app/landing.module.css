@@ -55,6 +55,7 @@
   background: rgba(244, 241, 234, 0.86);
   backdrop-filter: saturate(160%) blur(10px);
   border-bottom: 1px solid var(--line);
+  box-shadow: 0 10px 30px -24px rgba(21, 23, 28, 0.45);
 }
 .bar {
   max-width: var(--max);
@@ -127,6 +128,8 @@
 .quiet { color: var(--ink); padding: 0 4px; font-weight: 600; }
 .arrow { display: inline-block; transition: transform 0.2s ease; }
 .primary:hover .arrow { transform: translateX(4px); }
+.primary:active,
+.secondary:active { transform: scale(0.97); transition-duration: 0.08s; }
 
 /* ---- Type ------------------------------------------------------------------------ */
 
@@ -148,8 +151,10 @@
   from { opacity: 0; transform: translateY(32px); }
 }
 
-/* The highlighter: a marker stroke drawn behind a word. */
+/* The highlighter: a marker stroke drawn behind a word. The hero's plays on load;
+   .swipeLate and .swipeCoral sit below the fold and stroke on as they scroll in. */
 .swipe,
+.swipeLate,
 .swipeCoral {
   background-image: linear-gradient(transparent 12%, var(--lime) 12%, var(--lime) 88%, transparent 88%);
   background-repeat: no-repeat;
@@ -637,16 +642,58 @@
   .metricGrid > div:nth-child(5) { animation-range: entry 35% entry 75%; }
   .inkMark path {
     stroke-dasharray: 160;
-    stroke-dashoffset: 160;
     animation: draw linear both;
     animation-timeline: view();
     animation-range: entry 30% entry 60%;
   }
   @keyframes draw {
-    to { stroke-dashoffset: 0; }
+    from { stroke-dashoffset: 160; }
   }
   @keyframes tilt {
     from { transform: rotate(4deg) translateY(40px); opacity: 0.4; }
+  }
+
+  .swipeLate,
+  .swipeCoral { animation: highlight linear both; animation-timeline: view(); animation-range: entry 100% cover 45%; }
+
+  /* Cards in a row arrive one after another rather than all at once. */
+  .steps > li:nth-child(2),
+  .principles > li:nth-child(2),
+  .features > li:nth-child(3n + 2) { animation-range: entry 8% entry 63%; }
+  .steps > li:nth-child(3),
+  .principles > li:nth-child(3),
+  .features > li:nth-child(3n) { animation-range: entry 16% entry 71%; }
+  .steps > li:nth-child(4) { animation-range: entry 24% entry 79%; }
+
+  /* The report's trend plots itself, left to right. The resting inset(0) clips nothing
+     but lets the wipe interpolate; from none it would snap. */
+  .spark { clip-path: inset(0); animation: wipe linear both; animation-timeline: view(); animation-range: entry 60% cover 55%; }
+  @keyframes wipe {
+    from { clip-path: inset(0 100% 0 0); }
+  }
+}
+
+@supports (animation-timeline: scroll()) {
+  /* The header settles once the page moves (its shadow fades in over the first 160px),
+     and a highlighter line along its foot shows how far down the page you are. */
+  .header { animation: headerRest linear both; animation-timeline: scroll(root); animation-range: 0px 160px; }
+  @keyframes headerRest {
+    from { box-shadow: 0 10px 30px -24px transparent; }
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: var(--lime);
+    transform-origin: left;
+    animation: readProgress linear both;
+    animation-timeline: scroll(root);
+  }
+  @keyframes readProgress {
+    from { transform: scaleX(0); }
   }
 }
 
@@ -688,7 +735,8 @@
 
 /* ---- Reduced motion ---------------------------------------------------------------
    Nothing moves: what would rise fades in place, and nothing loops. Highlights still
-   colour in and the story in the live check still plays, because neither is motion.
+   colour in, lines still draw, the reading line still fills and the story in the live
+   check still plays, because none of that is motion.
    (Windows' "Animation effects" switch sets this, so it is common on work laptops.) */
 
 @keyframes fade {
@@ -713,11 +761,12 @@
   .wordmark:hover .mark { animation: none; }
   .report { animation: none; }
   .metricGrid > div { animation: none; }
-  .inkMark path { animation: none; stroke-dashoffset: 0; }
   .tickerTrack { animation: none; }
   .tickerWindow { overflow-x: auto; }
   .primary:hover,
   .secondary:hover,
+  .primary:active,
+  .secondary:active,
   .steps li:hover,
   .primary:hover .arrow { transform: none; }
 }

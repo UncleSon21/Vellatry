@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { ReactNode, useState } from 'react'
 import { direction } from '@/lib/format'
 
 export function Card({ title, sub, actions, children }: { title?: string; sub?: string; actions?: ReactNode; children: ReactNode }) {
@@ -20,8 +20,17 @@ export function Card({ title, sub, actions, children }: { title?: string; sub?: 
 }
 
 export function Tile({ label, value, change, tone }: { label: string; value: string; change?: string; tone?: 'good' | 'bad' | 'flat' }) {
+  // A number that changes while the page is open (a live refresh) gets a stroke of the
+  // highlighter. '-' means not loaded yet, so data arriving for the first time doesn't
+  // count. The class alternates so a second change restarts the animation.
+  const [shown, setShown] = useState(value)
+  const [changes, setChanges] = useState(0)
+  if (value !== shown) {
+    setShown(value)
+    if (shown !== '-' && value !== '-') setChanges(changes + 1)
+  }
   return (
-    <div className="tile">
+    <div className={changes ? `tile changed-${changes % 2 ? 'a' : 'b'}` : 'tile'}>
       <div className="label">{label}</div>
       <div className="value">{value}</div>
       {change ? <div className={`change ${tone ?? 'flat'}`}>{change}</div> : null}
@@ -50,7 +59,7 @@ export function ErrorNote({ error }: { error: string | null }) {
 }
 
 export function Loading({ what = 'Loading' }: { what?: string }) {
-  return <div className="notice empty">{what}…</div>
+  return <div className="notice empty loading">{what}…</div>
 }
 
 export function Pill({ tone, children }: { tone?: 'good' | 'bad' | 'warn'; children: ReactNode }) {
@@ -60,28 +69,30 @@ export function Pill({ tone, children }: { tone?: 'good' | 'bad' | 'warn'; child
 export function Table({ head, rows, empty }: { head: string[]; rows: ReactNode[][]; empty?: string }) {
   if (rows.length === 0) return <Empty>{empty ?? 'Nothing here yet.'}</Empty>
   return (
-    <table>
-      <thead>
-        <tr>
-          {head.map((h, i) => (
-            <th key={h} className={i > 0 ? 'num' : undefined}>
-              {h}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, i) => (
-          <tr key={i}>
-            {row.map((cell, j) => (
-              <td key={j} className={j > 0 ? 'num' : undefined}>
-                {cell}
-              </td>
+    <div className="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            {head.map((h, i) => (
+              <th key={h} className={i > 0 ? 'num' : undefined}>
+                {h}
+              </th>
             ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i}>
+              {row.map((cell, j) => (
+                <td key={j} className={j > 0 ? 'num' : undefined}>
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -101,7 +112,15 @@ export function Chart({ points, unit, caption }: { points: { day: string; value:
   })
   return (
     <figure style={{ margin: 0 }}>
-      <svg className="chart" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img" aria-label={caption ?? 'Trend'}>
+      {/* Keyed by the range, so choosing another range draws the new line on afresh. */}
+      <svg
+        key={`${usable[0].day}:${usable[usable.length - 1].day}`}
+        className="chart"
+        viewBox={`0 0 ${w} ${h}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={caption ?? 'Trend'}
+      >
         <line x1="0" y1={h - pad} x2={w} y2={h - pad} stroke="var(--line)" strokeWidth="1" />
         <polyline
           fill="none"

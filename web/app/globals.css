@@ -27,9 +27,6 @@
 * { box-sizing: border-box; }
 html, body { padding: 0; margin: 0; }
 html { scroll-behavior: smooth; }
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-}
 body {
   background: var(--bg);
   color: var(--ink);
@@ -46,13 +43,21 @@ a { color: inherit; }
 .sideuser { border-top: 1px solid var(--line); margin-top: 18px; padding: 14px 10px 0; }
 .navgroup { color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; padding: 14px 10px 4px; }
 .navlink {
-  display: block; padding: 7px 10px; border-radius: 6px; text-decoration: none;
-  color: var(--muted); font-size: 14px;
+  position: relative; display: block; padding: 7px 10px; border-radius: 6px; text-decoration: none;
+  color: var(--muted); font-size: 14px; transition: background-color 0.15s ease, color 0.15s ease;
 }
 .navlink:hover { background: var(--bg); color: var(--ink); }
 .navlink[aria-current="page"] { background: var(--bg); color: var(--ink); font-weight: 600; }
+/* The current page's marker: grows in on the new link as the old one's shrinks away. */
+.navlink::before {
+  content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 2px; border-radius: 2px;
+  background: var(--ink); transform: scaleY(0); transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.navlink[aria-current="page"]::before { transform: scaleY(1); }
 
-.main { padding: 24px 28px 64px; max-width: 1180px; }
+/* min-width: 0 lets the grid column shrink below its widest table, so that table
+   scrolls inside its card instead of stretching the page on a phone. */
+.main { padding: 24px 28px 64px; max-width: 1180px; min-width: 0; }
 .pagehead { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
 h1 { font-size: 22px; margin: 0 0 4px; }
 .sub { color: var(--muted); font-size: 14px; margin: 0; }
@@ -64,24 +69,32 @@ h1 { font-size: 22px; margin: 0 0 4px; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .tile { background: var(--panel); border-radius: var(--radius); padding: 14px 16px; }
 .tile .label { font-size: 13px; color: var(--muted); }
-.tile .value { font-size: 26px; font-weight: 600; line-height: 1.25; }
+.tile .value { font-size: 26px; font-weight: 600; line-height: 1.25; font-variant-numeric: tabular-nums; }
 .tile .change { font-size: 13px; }
 .good { color: var(--good); }
 .bad { color: var(--bad); }
 .flat, .muted { color: var(--muted); }
 .warn { color: var(--warn); }
 
+/* A table too wide for a phone scrolls inside its card rather than widening the page. */
+.tablewrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { text-align: left; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--line); padding: 8px 10px 8px 0; }
 td { border-bottom: 1px solid var(--line); padding: 8px 10px 8px 0; vertical-align: top; }
-td.num, th.num { text-align: right; white-space: nowrap; }
+th:last-child, td:last-child { padding-right: 0; }
+/* Right-aligned, but free to wrap: these columns also hold text ("Competitor A
+   recommended instead"), and a nowrap there widened the page on phones. */
+td.num, th.num { text-align: right; }
+td.num { font-variant-numeric: tabular-nums; }
 tr.dim td { color: var(--muted); }
 
 button, .btn {
   font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
   border-radius: 6px; padding: 7px 12px; cursor: pointer; text-decoration: none; display: inline-block;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease, transform 0.08s ease;
 }
 button:hover, .btn:hover { border-color: var(--faint); }
+button:active:not(:disabled), .btn:active { transform: translateY(1px); }
 button.primary, .btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
 button:disabled { opacity: 0.5; cursor: default; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -158,3 +171,78 @@ mark { border-radius: 3px; padding: 0 2px; }
 mark.m-brand { background: var(--lime-soft); color: var(--lime-ink); font-weight: 600; }
 mark.m-comp { background: var(--coral-soft); color: var(--coral-ink); font-weight: 600; }
 mark.m-excl { background: transparent; color: var(--faint); text-decoration: line-through; }
+
+/* ---- Motion: a light touch in the app ------------------------------------------------
+   A page settles in when it opens, the agent panel slides in, a chart wipes its line on,
+   and a tile whose number changes while you watch gets a stroke of the highlighter that
+   fades. Everything runs from a partial state to the ordinary style. With reduced motion
+   nothing moves: entries and the panel fade in place, the shimmer and the nav marker's
+   slide stop, and the highlight and the wipe stay, because they aren't motion. */
+
+@keyframes settle {
+  from { opacity: 0; transform: translateY(6px); }
+}
+@keyframes appear {
+  from { opacity: 0; }
+}
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(24px); }
+}
+@keyframes wipe-on {
+  from { clip-path: inset(0 100% 0 0); }
+}
+/* Two identical keyframes, so a second change restarts the highlight by switching name. */
+@keyframes marked-a {
+  from { background-color: var(--lime-soft); }
+}
+@keyframes marked-b {
+  from { background-color: var(--lime-soft); }
+}
+@keyframes shimmer {
+  from { background-position: 100% 0; }
+}
+
+/* Top-level blocks of a page (and each step of the setup wizard) mount fresh when you
+   arrive, so they settle in a beat apart. Live refreshes re-render; they don't remount. */
+.main > :not(.tiles),
+.tiles > .tile,
+.wizard .card { animation: settle 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.main > :nth-child(2) { animation-delay: 50ms; }
+.main > :nth-child(3) { animation-delay: 100ms; }
+.main > :nth-child(n + 4) { animation-delay: 150ms; }
+.tiles > .tile:nth-child(2) { animation-delay: 40ms; }
+.tiles > .tile:nth-child(3) { animation-delay: 80ms; }
+.tiles > .tile:nth-child(4) { animation-delay: 120ms; }
+.tiles > .tile:nth-child(n + 5) { animation-delay: 160ms; }
+.tiles > .tile.changed-a { animation: marked-a 2s ease-out both; }
+.tiles > .tile.changed-b { animation: marked-b 2s ease-out both; }
+
+.panel { animation: slide-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.panel .answer,
+.panel .evidence { animation: appear 0.35s ease both; }
+
+/* The resting inset(0) clips nothing (an inline svg already clips to its box), but the
+   wipe needs it: clip-path can't interpolate from inset() to none, so it would snap. */
+.chart { clip-path: inset(0); animation: wipe-on 0.9s cubic-bezier(0.3, 0.6, 0.2, 1) both; }
+
+/* Loading: a light sweep, three times at most, so it never becomes a loop. */
+.notice.loading {
+  background-image: linear-gradient(90deg, transparent 30%, color-mix(in srgb, var(--bg) 90%, transparent) 50%, transparent 70%);
+  background-size: 250% 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.4s ease-in-out 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .main > :not(.tiles),
+  .tiles > .tile,
+  .wizard .card,
+  .panel { animation-name: appear; }
+  .notice.loading { animation: none; }
+  .navlink::before,
+  button,
+  .btn { transition-property: background-color, border-color, color; }
+  button:active:not(:disabled),
+  .btn:active { transform: none; }
+}
