@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useApi } from '@/lib/api'
-import { Card, ErrorNote, Loading, Table } from '@/components/ui'
+import { Card, ErrorNote, Pill, Table } from '@/components/ui'
 import { clerkEnabled } from '@/lib/auth'
 
 type Me = { user_id: string; email: string; org_id?: string; role?: string; orgs: { id: string; name: string; role: string }[] }
@@ -34,32 +34,30 @@ export default function AccountPage() {
       </div>
 
       <ErrorNote error={me.error} />
-      {me.loading && <Loading />}
 
-      <Card title="Signed in as">
-        {me.data ? (
-          <Table
-            head={['Organisation', 'Role', '']}
-            empty="You are not a member of an organisation yet."
-            rows={(me.data.orgs ?? []).map((o) => [
-              o.name,
-              o.role,
+      <Card title="Signed in as" sub={me.data?.email}>
+        <Table
+          of={me}
+          head={['Organisation', 'Role', '']}
+          empty="You are not a member of an organisation yet."
+          rows={(me.data?.orgs ?? []).map((o) => [
+            o.name,
+            o.role,
+            me.data?.org_id === o.id ? (
+              <Pill key="u" tone="good">Current</Pill>
+            ) : (
               <button
                 key="u"
-                className={me.data?.org_id === o.id ? 'primary' : ''}
                 onClick={() => {
                   window.localStorage.setItem('vellatry.org', o.id)
                   window.location.reload()
                 }}
               >
-                {me.data?.org_id === o.id ? 'Current' : 'Switch'}
-              </button>,
-            ])}
-          />
-        ) : null}
-        <p className="sub" style={{ marginTop: 10 }}>
-          {me.data ? `${me.data.email}` : 'Not signed in.'}
-        </p>
+                Switch
+              </button>
+            ),
+          ])}
+        />
       </Card>
 
       {!clerkEnabled && (

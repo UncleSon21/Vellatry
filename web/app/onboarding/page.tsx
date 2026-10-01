@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api, useApi, useEvents } from '@/lib/api'
-import { Card, ErrorNote, Loading } from '@/components/ui'
+import { Card, ErrorNote, Loading, Unloaded } from '@/components/ui'
 import { Brand, BrandResponse, CompetitorsEditor, Differentiators, Recognition, TopicPicker } from '@/components/brand'
 import { Connections, GoogleConnect } from '@/components/GoogleConnect'
 import { Mark } from '@/components/Mark'
@@ -309,7 +309,7 @@ function ConnectionsStep({ refresh, connected, onBack, onNext }: { refresh: numb
     <>
       <ErrorNote error={error ?? list.error} />
       <Card title="Google" sub="Search Console and Analytics 4, read-only. One sign-in covers both; Vellatry never changes anything in your account.">
-        <GoogleConnect list={list.data} returnTo="onboarding" onError={setError} onChanged={list.reload} />
+        {list.data ? <GoogleConnect list={list.data} returnTo="onboarding" onError={setError} onChanged={list.reload} /> : <Unloaded of={list} />}
       </Card>
       <p className="sub" style={{ fontSize: 13 }}>Asana and Slack can be connected later from Settings.</p>
       <StepNav onBack={onBack} onNext={onNext} nextLabel={connected.length ? 'Next' : 'Skip for now'} quiet={!connected.length && Boolean(list.data?.google_available)} />

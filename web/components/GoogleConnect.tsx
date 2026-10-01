@@ -30,15 +30,16 @@ export async function chooseProperty(kind: string, property: string) {
 }
 
 // GoogleConnect is the Google sign-in and the Search Console and Analytics property
-// choice, shared by Settings → Connections and the setup wizard.
+// choice, shared by Settings → Connections and the setup wizard. Render it once the
+// list has loaded: before that it cannot know whether Google is connected.
 export function GoogleConnect({ list, returnTo, onError, onChanged, onDisconnect }: {
-  list: Connections | null
+  list: Connections
   returnTo?: 'onboarding'
   onError: (message: string) => void
   onChanged: () => void
   onDisconnect?: () => void
 }) {
-  const byKind = new Map((list?.connections ?? []).map((c) => [c.kind, c]))
+  const byKind = new Map(list.connections.map((c) => [c.kind, c]))
   const google = byKind.get('google')
   const choose = async (kind: string, property: string) => {
     try {
@@ -61,7 +62,7 @@ export function GoogleConnect({ list, returnTo, onError, onChanged, onDisconnect
         <Pill tone={google?.status === 'connected' ? 'good' : google?.status === 'broken' ? 'bad' : undefined}>{google?.status ?? 'not connected'}</Pill>
         {google?.status_detail && <span className="muted">{google.status_detail}</span>}
         <div className="spacer" />
-        {list?.google_available ? (
+        {list.google_available ? (
           google?.status === 'connected' ? (
             onDisconnect && <button onClick={onDisconnect}>Disconnect</button>
           ) : (
@@ -79,9 +80,13 @@ export function GoogleConnect({ list, returnTo, onError, onChanged, onDisconnect
           empty="This Google account has no Search Console properties."
           rows={google.config.sites.map((s) => [
             s.siteUrl,
-            <button key="c" className={byKind.get('search_console')?.config?.property === s.siteUrl ? 'primary' : ''} onClick={() => choose('search_console', s.siteUrl)}>
-              {byKind.get('search_console')?.config?.property === s.siteUrl ? 'In use' : 'Use this'}
-            </button>,
+            byKind.get('search_console')?.config?.property === s.siteUrl ? (
+              <Pill key="c" tone="good">In use</Pill>
+            ) : (
+              <button key="c" onClick={() => choose('search_console', s.siteUrl)}>
+                Use this
+              </button>
+            ),
           ])}
         />
       )}
@@ -92,9 +97,13 @@ export function GoogleConnect({ list, returnTo, onError, onChanged, onDisconnect
             empty="This Google account has no Analytics 4 properties."
             rows={google.config.properties.map((p) => [
               p.name ?? p.id,
-              <button key="c" className={byKind.get('ga4')?.config?.property === p.id ? 'primary' : ''} onClick={() => choose('ga4', p.id)}>
-                {byKind.get('ga4')?.config?.property === p.id ? 'In use' : 'Use this'}
-              </button>,
+              byKind.get('ga4')?.config?.property === p.id ? (
+                <Pill key="c" tone="good">In use</Pill>
+              ) : (
+                <button key="c" onClick={() => choose('ga4', p.id)}>
+                  Use this
+                </button>
+              ),
             ])}
           />
         </div>

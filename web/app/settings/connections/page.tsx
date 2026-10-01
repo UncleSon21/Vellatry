@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { api, useApi, useEvents } from '@/lib/api'
-import { Card, ErrorNote, Loading, Pill, Table } from '@/components/ui'
+import { Card, ErrorNote, Pill, Table, Unloaded } from '@/components/ui'
 import { chooseProperty, Connections, GoogleConnect, startConsent } from '@/components/GoogleConnect'
 
 const names: Record<string, string> = {
@@ -58,40 +58,52 @@ export default function ConnectionsPage() {
       </div>
 
       <ErrorNote error={error ?? list.error} />
-      {list.loading && <Loading />}
 
       <Card title="Google" sub="Search Console and Analytics 4. One sign-in covers both.">
-        <GoogleConnect list={list.data} onError={setError} onChanged={list.reload} onDisconnect={() => disconnect('google')} />
+        {list.data ? (
+          <GoogleConnect list={list.data} onError={setError} onChanged={list.reload} onDisconnect={() => disconnect('google')} />
+        ) : (
+          <Unloaded of={list} />
+        )}
       </Card>
 
       <Card title="Asana" sub="Send a fix or a blindspot to Asana as a task. Vellatry closes it when the work is confirmed done.">
-        <div className="row" style={{ marginBottom: 12 }}>
-          <Pill tone={asana?.status === 'connected' ? 'good' : asana?.status === 'broken' ? 'bad' : undefined}>{asana?.status ?? 'not connected'}</Pill>
-          {asana?.status_detail && <span className="muted">{asana.status_detail}</span>}
-          <div className="spacer" />
-          {list.data?.asana_available ? (
-            asana?.status === 'connected' ? (
-              <button onClick={() => disconnect('asana')}>Disconnect</button>
-            ) : (
-              <button className="primary" onClick={() => start('asana')}>
-                Connect Asana
-              </button>
-            )
-          ) : (
-            <span className="muted">Not configured on this server.</span>
-          )}
-        </div>
-        {asana?.config?.projects && (
-          <Table
-            head={['Project new tasks go to', '']}
-            empty="This Asana account has no projects to send tasks to."
-            rows={asana.config.projects.map((p) => [
-              p.name,
-              <button key="c" className={asana.config.project === p.gid ? 'primary' : ''} onClick={() => choose('asana', p.gid)}>
-                {asana.config.project === p.gid ? 'In use' : 'Use this'}
-              </button>,
-            ])}
-          />
+        {!list.data ? (
+          <Unloaded of={list} />
+        ) : (
+          <>
+            <div className="row" style={{ marginBottom: 12 }}>
+              <Pill tone={asana?.status === 'connected' ? 'good' : asana?.status === 'broken' ? 'bad' : undefined}>{asana?.status ?? 'not connected'}</Pill>
+              {asana?.status_detail && <span className="muted">{asana.status_detail}</span>}
+              <div className="spacer" />
+              {list.data.asana_available ? (
+                asana?.status === 'connected' ? (
+                  <button onClick={() => disconnect('asana')}>Disconnect</button>
+                ) : (
+                  // Outlined: Google is this page's primary connection; Asana is optional.
+                  <button onClick={() => start('asana')}>Connect Asana</button>
+                )
+              ) : (
+                <span className="muted">Not configured on this server.</span>
+              )}
+            </div>
+            {asana?.config?.projects && (
+              <Table
+                head={['Project new tasks go to', '']}
+                empty="This Asana account has no projects to send tasks to."
+                rows={asana.config.projects.map((p) => [
+                  p.name,
+                  asana.config.project === p.gid ? (
+                    <Pill key="c" tone="good">In use</Pill>
+                  ) : (
+                    <button key="c" onClick={() => choose('asana', p.gid)}>
+                      Use this
+                    </button>
+                  ),
+                ])}
+              />
+            )}
+          </>
         )}
       </Card>
     </>

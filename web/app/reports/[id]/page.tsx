@@ -127,9 +127,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
         )}
         <textarea rows={7} value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="What happened this period, in your own words." />
         <div className="row" style={{ marginTop: 8 }}>
-          <button className="primary" onClick={save}>
-            Save
-          </button>
+          <button onClick={save}>Save</button>
           {r.unverified.length > 0 && <span className="bad">Not in the report: {r.unverified.join(', ')}</span>}
         </div>
       </Card>
