@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { api, useApi, useEvents } from '@/lib/api'
-import { Card, Empty, ErrorNote, Pill, Table } from '@/components/ui'
+import { Card, Empty, ErrorNote, Pill, Segmented, Table } from '@/components/ui'
 import { num, when } from '@/lib/format'
 
 type Topic = {
@@ -25,6 +25,12 @@ type Topic = {
   similar_score: number | null
 }
 type Run = { id: number; status: string; trigger: string; started_at: string; stats: Record<string, number> }
+
+const statuses = [
+  { value: 'proposed', label: 'Proposed' },
+  { value: 'active', label: 'Active' },
+  { value: 'out_of_scope', label: 'Out of scope' },
+]
 
 export default function TopicsPage() {
   const [status, setStatus] = useState('proposed')
@@ -90,12 +96,8 @@ export default function TopicsPage() {
         </div>
       )}
 
-      <div className="row" style={{ marginBottom: 12 }}>
-        {['proposed', 'active', 'out_of_scope'].map((s) => (
-          <button key={s} className={s === status ? 'primary' : ''} onClick={() => setStatus(s)}>
-            {s.replace(/_/g, ' ')}
-          </button>
-        ))}
+      <div style={{ marginBottom: 12 }}>
+        <Segmented label="Status" options={statuses} value={status} onChange={setStatus} />
       </div>
 
       <Card>

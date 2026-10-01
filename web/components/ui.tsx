@@ -170,15 +170,28 @@ export function Chart({ points, unit, caption, of }: { points: { day: string; va
   )
 }
 
-export function RangePicker({ days, onChange }: { days: number; onChange: (d: number) => void }) {
-  const options = [7, 28, 90]
+// A choice between views of the same thing: a status, a date range. It looks like a
+// control rather than the page's primary action, and says which option is on
+// (aria-pressed) instead of relying on colour.
+export function Segmented<T extends string | number>({ label, options, value, onChange }: {
+  label: string
+  options: readonly { value: T; label: string }[]
+  value: T
+  onChange: (v: T) => void
+}) {
   return (
-    <div className="row">
-      {options.map((d) => (
-        <button key={d} onClick={() => onChange(d)} className={d === days ? 'primary' : ''}>
-          {d} days
+    <div className="segmented" role="group" aria-label={label}>
+      {options.map((o) => (
+        <button key={o.value} type="button" aria-pressed={o.value === value} onClick={() => onChange(o.value)}>
+          {o.label}
         </button>
       ))}
     </div>
   )
+}
+
+const ranges = [7, 28, 90].map((d) => ({ value: d, label: `${d} days` }))
+
+export function RangePicker({ days, onChange }: { days: number; onChange: (d: number) => void }) {
+  return <Segmented label="Period" options={ranges} value={days} onChange={onChange} />
 }

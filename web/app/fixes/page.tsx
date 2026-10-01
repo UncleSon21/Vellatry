@@ -3,7 +3,7 @@
 import { ReactNode, useState } from 'react'
 import Link from 'next/link'
 import { api, useApi, useEvents } from '@/lib/api'
-import { Card, Empty, ErrorNote, Pill, Table } from '@/components/ui'
+import { Card, Empty, ErrorNote, Pill, Segmented, Table } from '@/components/ui'
 import { day } from '@/lib/format'
 
 type Fix = {
@@ -21,6 +21,13 @@ type Fix = {
 }
 
 const tone: Record<string, 'good' | 'bad' | 'warn' | undefined> = { live: 'good', measured: 'good', proposed: undefined, sent: 'warn', dismissed: undefined }
+
+const statuses = [
+  { value: 'proposed', label: 'Proposed' },
+  { value: 'sent', label: 'Sent' },
+  { value: 'live', label: 'Live' },
+  { value: 'dismissed', label: 'Dismissed' },
+]
 
 // What each empty list is waiting for.
 const nothing: Record<string, ReactNode> = {
@@ -62,13 +69,7 @@ export default function FixesPage() {
             Copy-ready changes. Vellatry writes them, you or your developer make them, and the next crawl confirms they are live.
           </p>
         </div>
-        <div className="row">
-          {['proposed', 'sent', 'live', 'dismissed'].map((s) => (
-            <button key={s} className={s === status ? 'primary' : ''} onClick={() => setStatus(s)}>
-              {s}
-            </button>
-          ))}
-        </div>
+        <Segmented label="Status" options={statuses} value={status} onChange={setStatus} />
       </div>
 
       <ErrorNote error={error ?? list.error} />

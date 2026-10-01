@@ -116,7 +116,7 @@ graph paper under it). Pointer effects are mouse-only and never run with reduced
 ## Components (reuse before writing new ones)
 
 - `components/ui.tsx`: `Card`, `Tile`, `MetricTile`, `Table`, `Chart`, `Pill`, `Empty`,
-  `ErrorNote`, `Loading`, `RangePicker`.
+  `ErrorNote`, `Loading`, `Segmented`, `RangePicker`.
 - `components/brand.tsx`: `ListEditor` (chips), `Tester` (highlighted mentions),
   `Recognition`, `Differentiators`, `CompetitorsEditor`, `TopicPicker`.
 - `components/Mark.tsx`: the logo, a ring with one lime segment (the blindspot).
@@ -124,7 +124,10 @@ graph paper under it). Pointer effects are mouse-only and never run with reduced
 - `components/AuthFrame.tsx`, `components/GoogleConnect.tsx`, `components/Shell.tsx`
   (layout and gate), `components/Nav.tsx`.
 - Buttons: one primary (ink) per view; everything else outlined. On lime, the
-  secondary is an ink outline.
+  secondary is an ink outline. A choice between views of the same thing (a status
+  filter, a date range) is a `Segmented`, never a row of buttons with the chosen one
+  primary: it would compete with the page's action, and it says nothing to a screen
+  reader. `Segmented` sets `aria-pressed`.
 - Clerk's screens are themed from the same tokens in `lib/clerkAppearance.ts`. Change
   both together.
 

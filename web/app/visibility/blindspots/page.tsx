@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { api, useApi, useEvents } from '@/lib/api'
-import { Card, Empty, ErrorNote, Pill, Table } from '@/components/ui'
+import { Card, Empty, ErrorNote, Pill, Segmented, Table } from '@/components/ui'
 import { dec, engineName, num, when } from '@/lib/format'
 
 type Blindspot = {
@@ -19,6 +19,12 @@ type Blindspot = {
   last_seen: string
   priority: { score: number; demand: number; severity: number; certainty: number }
 }
+
+const statuses = [
+  { value: 'open', label: 'Open' },
+  { value: 'resolved', label: 'Resolved' },
+  { value: 'dismissed', label: 'Dismissed' },
+] as const
 
 export default function BlindspotsPage() {
   const [status, setStatus] = useState<'open' | 'resolved' | 'dismissed'>('open')
@@ -52,13 +58,7 @@ export default function BlindspotsPage() {
             confirmed on five.
           </p>
         </div>
-        <div className="row">
-          {(['open', 'resolved', 'dismissed'] as const).map((s) => (
-            <button key={s} className={s === status ? 'primary' : ''} onClick={() => setStatus(s)}>
-              {s}
-            </button>
-          ))}
-        </div>
+        <Segmented label="Status" options={statuses} value={status} onChange={setStatus} />
       </div>
 
       <ErrorNote error={error ?? list.error} />
