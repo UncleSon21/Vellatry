@@ -40,9 +40,11 @@ type Notebook struct {
 // Source is one document in a notebook.
 type Source struct {
 	ID       string     `json:"id"`
-	Kind     string     `json:"kind"` // url | text | file
+	Kind     string     `json:"kind"` // url | text | file | report
 	Title    string     `json:"title"`
 	URL      *string    `json:"url"`
+	Report   *string    `json:"report_id"`      // kind = report: which report
+	Version  int        `json:"report_version"` // and which version of it, pinned
 	Bytes    int        `json:"bytes"`
 	Chunks   int        `json:"chunks"`
 	Status   string     `json:"status"`
@@ -149,22 +151,26 @@ func Delete(ctx context.Context, tx pgx.Tx, id string) error {
 
 // ---- sources -------------------------------------------------------------------------
 
-const sourceCols = `id::text, notebook_id::text, kind, title, url, bytes, chunks, status, error, added_by, added_at, ready_at`
+const sourceCols = `id::text, notebook_id::text, kind, title, url, report_id::text, coalesce(report_version, 0),
+	bytes, chunks, status, error, added_by, added_at, ready_at`
 
 func scanSource(r pgx.Row) (Source, error) {
 	var s Source
-	err := r.Scan(&s.ID, &s.Notebook, &s.Kind, &s.Title, &s.URL, &s.Bytes, &s.Chunks, &s.Status, &s.Error, &s.AddedBy, &s.AddedAt, &s.ReadyAt)
+	err := r.Scan(&s.ID, &s.Notebook, &s.Kind, &s.Title, &s.URL, &s.Report, &s.Version,
+		&s.Bytes, &s.Chunks, &s.Status, &s.Error, &s.AddedBy, &s.AddedAt, &s.ReadyAt)
 	return s, err
 }
 
-// New is a document being added. A url source is fetched by the worker; a text or file
-// source already has its body.
+// New is a document being added. A url source is fetched by the worker and a report
+// source is rendered by it; a text or file source already has its body.
 type New struct {
-	Kind  string // url | text | file
-	Title string
-	URL   string
-	Body  string
-	By    string
+	Kind    string // url | text | file | report
+	Title   string
+	URL     string
+	Report  string // kind = report: the report's id
+	Version int    // and the version to pin to, which the caller has already resolved
+	Body    string
+	By      string
 }
 
 // AddSource records a document waiting to be read.
@@ -177,9 +183,9 @@ func AddSource(ctx context.Context, tx pgx.Tx, org, notebookID string, in New) (
 		title = string([]rune(title)[:200])
 	}
 	s, err := scanSource(tx.QueryRow(ctx, `
-		INSERT INTO notebook_sources (org_id, notebook_id, kind, title, url, body, bytes, added_by)
-		VALUES ($1, $2, $3, $4, nullif($5, ''), $6, $7, nullif($8, ''))
-		RETURNING `+sourceCols, org, notebookID, in.Kind, title, in.URL, in.Body, len(in.Body), in.By))
+		INSERT INTO notebook_sources (org_id, notebook_id, kind, title, url, report_id, report_version, body, bytes, added_by)
+		VALUES ($1, $2, $3, $4, nullif($5, ''), nullif($6, '')::uuid, nullif($7, 0), $8, $9, nullif($10, ''))
+		RETURNING `+sourceCols, org, notebookID, in.Kind, title, in.URL, in.Report, in.Version, in.Body, len(in.Body), in.By))
 	return s, err
 }
 
@@ -197,7 +203,8 @@ func LoadSource(ctx context.Context, tx pgx.Tx, id string) (Source, string, erro
 	var s Source
 	var body string
 	err := tx.QueryRow(ctx, `SELECT `+sourceCols+`, body FROM notebook_sources WHERE id::text = $1`, id).
-		Scan(&s.ID, &s.Notebook, &s.Kind, &s.Title, &s.URL, &s.Bytes, &s.Chunks, &s.Status, &s.Error, &s.AddedBy, &s.AddedAt, &s.ReadyAt, &body)
+		Scan(&s.ID, &s.Notebook, &s.Kind, &s.Title, &s.URL, &s.Report, &s.Version,
+			&s.Bytes, &s.Chunks, &s.Status, &s.Error, &s.AddedBy, &s.AddedAt, &s.ReadyAt, &body)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s, "", ErrNotFound
 	}

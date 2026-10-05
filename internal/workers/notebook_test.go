@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -20,6 +21,7 @@ import (
 	"github.com/UncleSon21/vellatry/internal/platform/events"
 	"github.com/UncleSon21/vellatry/internal/platform/gateway"
 	"github.com/UncleSon21/vellatry/internal/platform/jobs"
+	"github.com/UncleSon21/vellatry/internal/reports"
 	"github.com/UncleSon21/vellatry/internal/testdb"
 )
 
@@ -249,6 +251,114 @@ func TestNotebookReadsAndAnswers(t *testing.T) {
 		}
 		if chunks != stored {
 			t.Errorf("re-reading left %d passages for a source that says it has %d", chunks, stored)
+		}
+		return nil
+	})
+}
+
+// A published report is the one piece of Vellatry's own data a notebook can hold, and it
+// is held as the frozen version it was pinned to.
+func TestNotebookReadsAPublishedReport(t *testing.T) {
+	pool := testdb.Pool(t)
+	ctx := context.Background()
+	org, _ := testdb.NewOrg(t, pool, "notebook-report")
+
+	inserter, err := jobs.NewInserter(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := &Notebooks{Pool: pool, Logger: slog.Default(), Bus: events.NewBus(inserter, domainevents.Subscriptions()...)}
+	n.Register(river.NewWorkers())
+	tenant := func(fn func(ctx context.Context, tx pgx.Tx) error) {
+		t.Helper()
+		if err := db.InTenant(ctx, pool, org, fn); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	snap := reports.Snapshot{Version: reports.SnapshotVersion, Org: "Wombat Pty Ltd", Brand: "Wombat",
+		Period:   reports.Period{Start: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC), End: time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC), Label: "August 2026"},
+		Previous: reports.Period{Label: "July 2026"}, Order: []string{reports.SecVisibility},
+		Visibility: &reports.VisibilitySection{Answers: 300, Visibility: reports.Pair{Current: ptrf(41.0), Previous: ptrf(35.5)}}}
+
+	var nb notebook.Notebook
+	var reportID string
+	var src notebook.Source
+	tenant(func(ctx context.Context, tx pgx.Tx) error {
+		var seriesID string
+		if err := tx.QueryRow(ctx, `INSERT INTO report_series (org_id, name, period) VALUES ($1, 'Monthly performance', 'month') RETURNING id::text`, org).Scan(&seriesID); err != nil {
+			return err
+		}
+		sr, err := reports.LoadSeries(ctx, tx, seriesID)
+		if err != nil {
+			return err
+		}
+		if reportID, _, err = reports.SaveDraft(ctx, tx, org, sr, snap, "", false); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE reports SET summary = $2 WHERE id::text = $1`, reportID, "Visibility rose to 41.0%, up 5.5 pts."); err != nil {
+			return err
+		}
+		if _, err := reports.Publish(ctx, tx, org, reportID, "lead"); err != nil {
+			return err
+		}
+		if nb, err = notebook.Create(ctx, tx, org, "The quarter", ""); err != nil {
+			return err
+		}
+		src, err = notebook.AddSource(ctx, tx, org, nb.ID, notebook.New{Kind: "report", Title: "", Report: reportID, Version: 1})
+		return err
+	})
+
+	if err := (&notebookReadWorker{n: n}).Work(ctx, job(jobargs.NotebookRead{OrgID: org, SourceID: src.ID})); err != nil {
+		t.Fatal(err)
+	}
+	tenant(func(ctx context.Context, tx pgx.Tx) error {
+		got, body, err := notebook.LoadSource(ctx, tx, src.ID)
+		if err != nil {
+			return err
+		}
+		if got.Status != "ready" || got.Chunks == 0 || got.Title != "Monthly performance: August 2026" {
+			t.Errorf("the report source = %+v", got)
+		}
+		if got.Report == nil || *got.Report != reportID || got.Version != 1 {
+			t.Errorf("the version was not pinned: %+v", got)
+		}
+		// Figures the report shows, and the team's own summary of the period.
+		for _, want := range []string{"41.0%", "## AI visibility", "Visibility rose to 41.0%, up 5.5 pts."} {
+			if !strings.Contains(body, want) {
+				t.Errorf("the report's passages are missing %q:\n%s", want, body)
+			}
+		}
+		// It is searchable beside the team's own documents.
+		hits, err := notebook.ByText(ctx, tx, nb.ID, "how did AI visibility move", notebook.Candidates)
+		if err != nil {
+			return err
+		}
+		if len(hits) == 0 {
+			t.Error("the report was not searchable")
+		}
+		return nil
+	})
+
+	// Withdrawing it leaves the passages exactly as they were: a citation has to keep
+	// saying what it said. Only a re-read refuses, and says why.
+	tenant(func(ctx context.Context, tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `UPDATE reports SET status = 'withdrawn' WHERE id::text = $1`, reportID); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `UPDATE notebook_sources SET status = 'pending' WHERE id::text = $1`, src.ID)
+		return err
+	})
+	if err := (&notebookReadWorker{n: n}).Work(ctx, job(jobargs.NotebookRead{OrgID: org, SourceID: src.ID})); err != nil {
+		t.Fatal(err)
+	}
+	tenant(func(ctx context.Context, tx pgx.Tx) error {
+		got, _, err := notebook.LoadSource(ctx, tx, src.ID)
+		if err != nil {
+			return err
+		}
+		if got.Status != "failed" || got.Error == nil || !strings.Contains(*got.Error, "withdrawn") {
+			t.Errorf("a withdrawn report = %+v", got)
 		}
 		return nil
 	})

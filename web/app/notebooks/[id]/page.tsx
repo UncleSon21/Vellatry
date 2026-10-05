@@ -12,6 +12,8 @@ type Source = {
   kind: string
   title: string
   url: string | null
+  report_id: string | null
+  report_version: number
   chunks: number
   status: string
   error: string | null
@@ -36,6 +38,7 @@ type Note = {
   created_at: string
 }
 type Recipe = { id: number; name: string; question: string; runs: number; last_run_at: string | null }
+type PublishedReport = { id: string; title: string; version: number }
 type Notebook = {
   id: string
   name: string
@@ -56,13 +59,17 @@ function opening(text: string) {
 export default function NotebookPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const nb = useApi<Notebook>(`/v1/notebooks/${id}`)
+  // A published report is the one piece of Vellatry's own data a notebook can hold: it is
+  // frozen, so a passage cited from it keeps saying what it said.
+  const published = useApi<PublishedReport[]>('/v1/reports?status=published&limit=50')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [adding, setAdding] = useState<'url' | 'text'>('url')
+  const [adding, setAdding] = useState<'url' | 'text' | 'report'>('url')
   const [url, setUrl] = useState('')
   const [text, setText] = useState('')
   const [question, setQuestion] = useState('')
   const [note, setNote] = useState('')
+  const [report, setReport] = useState('')
   const [pane, setPane] = useState<'questions' | 'notes'>('questions')
   const file = useRef<HTMLInputElement>(null)
 
@@ -85,11 +92,12 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
     }
   }
 
-  const addSource = (body: Record<string, string>) =>
+  const addSource = (body: Record<string, string | number>) =>
     call(async () => {
       await api(`/v1/notebooks/${id}/sources`, { method: 'POST', body: JSON.stringify(body) })
       setUrl('')
       setText('')
+      setReport('')
     })
 
   // A file is read in the browser and sent as text: notebooks read text, and a document
@@ -160,6 +168,10 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
                       <a className={css.sourceName} href={s.url} target="_blank" rel="noreferrer noopener">
                         {s.title || s.url}
                       </a>
+                    ) : s.kind === 'report' && s.report_id ? (
+                      <Link className={css.sourceName} href={`/reports/${s.report_id}`}>
+                        {s.title}
+                      </Link>
                     ) : (
                       <span className={css.sourceName}>{s.title}</span>
                     )}
@@ -167,6 +179,7 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
                       <span className={`${css.sourceNote} ${css.sourceNote} ${css.failed}`}>{s.error}</span>
                     ) : s.status === 'ready' ? (
                       <span className={css.sourceNote}>
+                        {s.kind === 'report' ? `Report, version ${s.report_version} · ` : ''}
                         {s.chunks} passage{s.chunks === 1 ? '' : 's'} · added {when(s.added_at)}
                       </span>
                     ) : (
@@ -191,11 +204,12 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
             options={[
               { value: 'url', label: 'A web page' },
               { value: 'text', label: 'Paste text' },
+              { value: 'report', label: 'A report' },
             ]}
             value={adding}
             onChange={setAdding}
           />
-          {adding === 'url' ? (
+          {adding === 'url' && (
             <div className="row" style={{ marginTop: 10 }}>
               <input
                 value={url}
@@ -209,7 +223,8 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
                 Add
               </button>
             </div>
-          ) : (
+          )}
+          {adding === 'text' && (
             <div style={{ marginTop: 10 }}>
               <textarea
                 rows={5}
@@ -223,6 +238,47 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
                   Add
                 </button>
               </div>
+            </div>
+          )}
+          {adding === 'report' && (
+            <div style={{ marginTop: 10 }}>
+              {(published.data ?? []).length === 0 ? (
+                <Empty label="No published reports yet">
+                  A published report is frozen, so a passage cited from one keeps saying what it said. Publish one on the{' '}
+                  <Link href="/reports">Reports</Link> page and it can be added here.
+                </Empty>
+              ) : (
+                <>
+                  <div className="row">
+                    <select
+                      value={report}
+                      onChange={(e) => setReport(e.target.value)}
+                      aria-label="A published report"
+                      style={{ flex: 1, minWidth: 180 }}
+                    >
+                      <option value="">Choose a report</option>
+                      {(published.data ?? []).map((p) => (
+                        <option key={`${p.id}:${p.version}`} value={`${p.id}:${p.version}`}>
+                          {p.title}
+                          {p.version > 1 ? ` (revision ${p.version})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => {
+                        const [rid, v] = report.split(':')
+                        void addSource({ kind: 'report', report_id: rid, report_version: Number(v) })
+                      }}
+                      disabled={busy || !report}
+                    >
+                      Add
+                    </button>
+                  </div>
+                  <p className="sub" style={{ marginTop: 8 }}>
+                    The version you pick is kept. For current numbers, ask the agent on any page: it works them out fresh.
+                  </p>
+                </>
+              )}
             </div>
           )}
           <p className="sub" style={{ marginTop: 10 }}>

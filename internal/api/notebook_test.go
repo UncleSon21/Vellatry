@@ -17,6 +17,7 @@ import (
 	"github.com/UncleSon21/vellatry/internal/platform/db"
 	"github.com/UncleSon21/vellatry/internal/platform/events"
 	"github.com/UncleSon21/vellatry/internal/platform/jobs"
+	"github.com/UncleSon21/vellatry/internal/reports"
 	"github.com/UncleSon21/vellatry/internal/testdb"
 )
 
@@ -141,6 +142,43 @@ func TestNotebookAPI(t *testing.T) {
 	}
 	if code, _, list := other.do("GET", "/v1/notebooks", nil); code != http.StatusOK || len(list) != 0 {
 		t.Errorf("another organisation's list = %d %v", code, list)
+	}
+
+	// Vellatry's own data comes in as a published report, pinned to a version. A draft
+	// has nothing frozen to read, so it is refused by name.
+	var draftID string
+	if err := db.InTenant(ctx, pool, org, func(ctx context.Context, tx pgx.Tx) error {
+		var seriesID string
+		if err := tx.QueryRow(ctx, `INSERT INTO report_series (org_id, name, period) VALUES ($1, 'Monthly performance', 'month') RETURNING id::text`, org).Scan(&seriesID); err != nil {
+			return err
+		}
+		sr, err := reports.LoadSeries(ctx, tx, seriesID)
+		if err != nil {
+			return err
+		}
+		snap := reports.Snapshot{Version: reports.SnapshotVersion, Org: "Wombat", Brand: "Wombat",
+			Period:   reports.Period{Start: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC), End: time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC), Label: "August 2026"},
+			Previous: reports.Period{Label: "July 2026"}, Order: []string{reports.SecVisibility},
+			Visibility: &reports.VisibilitySection{Answers: 300, Visibility: reports.Pair{Current: ptr(41.0), Previous: ptr(35.5)}}}
+		draftID, _, err = reports.SaveDraft(ctx, tx, org, sr, snap, "", false)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if code, _, _ := user.do("POST", "/v1/notebooks/"+id+"/sources",
+		map[string]any{"kind": "report", "report_id": draftID}); code != http.StatusBadRequest {
+		t.Errorf("an unpublished report was accepted as a source: %d", code)
+	}
+	if err := db.InTenant(ctx, pool, org, func(ctx context.Context, tx pgx.Tx) error {
+		_, err := reports.Publish(ctx, tx, org, draftID, "lead")
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// Version 0 means the latest, and what is stored is the version it resolved to.
+	code, body, _ = user.do("POST", "/v1/notebooks/"+id+"/sources", map[string]any{"kind": "report", "report_id": draftID})
+	if code != http.StatusCreated || body["report_version"].(float64) != 1 || body["title"] == "" {
+		t.Fatalf("a published report as a source: %d %v", code, body)
 	}
 
 	// Saved outputs: a kept answer, the team's own note, and a recipe to ask again.

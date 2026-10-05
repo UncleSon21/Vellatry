@@ -24,6 +24,7 @@ import (
 	"github.com/UncleSon21/vellatry/internal/platform/db"
 	"github.com/UncleSon21/vellatry/internal/platform/events"
 	"github.com/UncleSon21/vellatry/internal/platform/gateway"
+	"github.com/UncleSon21/vellatry/internal/reports"
 	"github.com/UncleSon21/vellatry/internal/site"
 )
 
@@ -84,7 +85,7 @@ func (w *notebookReadWorker) Work(ctx context.Context, job *river.Job[jobargs.No
 		return nil // already read: a retry of a job that got through
 	}
 
-	title, text, err := w.read(ctx, src, body)
+	title, text, err := w.read(ctx, org, src, body)
 	if err != nil {
 		var refuse refusal
 		if !errors.As(err, &refuse) && job.Attempt < job.MaxAttempts {
@@ -120,15 +121,19 @@ func (r refusal) Error() string { return r.why }
 func refuse(format string, args ...any) error { return refusal{fmt.Sprintf(format, args...)} }
 
 // read returns the title and text of a source. Pasted and uploaded text is already here;
-// a URL is fetched now.
-func (w *notebookReadWorker) read(ctx context.Context, src notebook.Source, body string) (title, text string, err error) {
-	if src.Kind != "url" {
+// a URL is fetched now, and a report is rendered from the version it was pinned to.
+func (w *notebookReadWorker) read(ctx context.Context, org string, src notebook.Source, body string) (title, text string, err error) {
+	switch {
+	case src.Kind == "report":
+		return w.readReport(ctx, org, src)
+	case src.Kind != "url":
 		text, err = notebook.Read("", []byte(body))
 		return src.Title, text, readable(err)
 	}
 	if src.URL == nil || *src.URL == "" {
 		return "", "", refuse("There is no address to read.")
 	}
+
 	u, err := url.Parse(*src.URL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		return "", "", refuse("That is not a web address we can read.")
@@ -170,6 +175,40 @@ func (w *notebookReadWorker) read(ctx context.Context, src notebook.Source, body
 		}
 	}
 	return title, text, nil
+}
+
+// readReport renders a published report version as the text a notebook searches. It is
+// the same plain-text rendering the report's own summary drafter reads, so the passages a
+// notebook cites are the figures the report shows and nothing besides.
+//
+// Every number in it was computed by code before the report was published. The model
+// repeating one here is repeating a measurement, which is the only way a number ever
+// reaches a reader in this product.
+func (w *notebookReadWorker) readReport(ctx context.Context, org string, src notebook.Source) (title, text string, err error) {
+	if src.Report == nil || *src.Report == "" {
+		return "", "", refuse("There is no report to read.")
+	}
+	var v reports.Version
+	if err := db.InTenant(ctx, w.n.Pool, org, func(ctx context.Context, tx pgx.Tx) error {
+		var err error
+		v, err = reports.LoadVersion(ctx, tx, *src.Report, src.Version)
+		return err
+	}); err != nil {
+		if errors.Is(err, reports.ErrNotFound) {
+			return "", "", refuse("That report has been withdrawn, so it is no longer readable.")
+		}
+		return "", "", err
+	}
+	body := reports.RenderText(v.Snapshot)
+	if s := strings.TrimSpace(v.Summary); s != "" {
+		// The team's own summary of the period, which is part of what the report says.
+		body = "## Summary\n\n" + s + "\n\n" + body
+	}
+	title = src.Title
+	if title == "" {
+		title = v.Title
+	}
+	return title, body, nil
 }
 
 // readable turns the reader's refusals into something the team can act on.

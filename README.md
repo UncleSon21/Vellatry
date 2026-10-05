@@ -126,7 +126,12 @@ blindspot into a fix whose outcome is measured.
   an answer can never be grounded in an earlier answer. A question worth asking again
   becomes a recipe, which belongs to the organisation rather than to one notebook and can
   be run against any of them.
-- Next: notebook sources drawn from Vellatry's own data, and the first design partner.
+  A published report can be a source too, and it is the only one of Vellatry's own
+  measurements that can: a report version is frozen, so a passage cited from it keeps
+  saying what it said, while a live rollup does not. The version is pinned when it is
+  added, and withdrawing the report leaves the passages and the notes citing them exactly
+  as they were. For current numbers the team asks the agent, which works them out fresh.
+- Next: a reranker over the fused results, and the first design partner.
 
 | Spike | Question | State |
 | --- | --- | --- |

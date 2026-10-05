@@ -13,6 +13,7 @@ import (
 	"github.com/UncleSon21/vellatry/internal/domainevents"
 	"github.com/UncleSon21/vellatry/internal/notebook"
 	"github.com/UncleSon21/vellatry/internal/platform/events"
+	"github.com/UncleSon21/vellatry/internal/reports"
 )
 
 // The notebook's api does no reading, no fetching and no thinking: it records what the
@@ -132,10 +133,12 @@ func (s *Server) deleteNotebook(w http.ResponseWriter, r *http.Request) {
 // guard the site crawler uses, because a name can resolve anywhere.
 func (s *Server) addSource(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Kind  string `json:"kind"`  // url | text | file
-		URL   string `json:"url"`   // kind = url
-		Title string `json:"title"` // optional for url, the file's name for file
-		Text  string `json:"text"`  // kind = text or file
+		Kind     string `json:"kind"`           // url | text | file | report
+		URL      string `json:"url"`            // kind = url
+		Title    string `json:"title"`          // optional for url, the file's name for file
+		Text     string `json:"text"`           // kind = text or file
+		ReportID string `json:"report_id"`      // kind = report
+		Version  int    `json:"report_version"` // and which version; 0 means the latest
 	}
 	if err := decode(r, &in); err != nil {
 		s.fail(w, r, err)
@@ -163,8 +166,10 @@ func (s *Server) addSource(w http.ResponseWriter, r *http.Request) {
 			in.Title = firstLine(in.Text)
 		}
 		in.URL = ""
+	case "report":
+		in.URL, in.Text = "", ""
 	default:
-		s.fail(w, r, badRequest("A source is a web address, pasted text or a text file."))
+		s.fail(w, r, badRequest("A source is a web address, pasted text, a text file or a published report."))
 		return
 	}
 
@@ -172,10 +177,25 @@ func (s *Server) addSource(w http.ResponseWriter, r *http.Request) {
 	var out notebook.Source
 	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
 		org, user := sessionFrom(ctx).OrgID, sessionFrom(ctx).UserID
+		add := notebook.New{Kind: in.Kind, Title: in.Title, URL: in.URL, Body: in.Text, By: user}
+		if in.Kind == "report" {
+			// The version is resolved and pinned now. A revision is a different account
+			// of the same period, so it is a different source, added deliberately: a
+			// passage already cited must keep saying what it said.
+			v, err := reports.LoadVersion(ctx, tx, in.ReportID, in.Version)
+			if err != nil {
+				if errors.Is(err, reports.ErrNotFound) {
+					return badRequest("That report is not published, so there is nothing frozen to read.")
+				}
+				return err
+			}
+			add.Report, add.Version = v.ReportID, v.Version
+			if add.Title == "" {
+				add.Title = v.Title
+			}
+		}
 		var err error
-		if out, err = notebook.AddSource(ctx, tx, org, id, notebook.New{
-			Kind: in.Kind, Title: in.Title, URL: in.URL, Body: in.Text, By: user,
-		}); err != nil {
+		if out, err = notebook.AddSource(ctx, tx, org, id, add); err != nil {
 			return err
 		}
 		_, err = s.Bus.Emit(ctx, tx, org, events.Event{Kind: domainevents.NotebookSourceAdded, SubjectID: out.ID, Actor: user,
