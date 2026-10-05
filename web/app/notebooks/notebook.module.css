@@ -1,0 +1,152 @@
+/* The notebook is two columns: what you gave it, and what you asked of it. The answers
+   need the room, so the two only sit side by side when there is enough for both; below
+   that the sources stack on top, because the sources are what you add first. */
+.split {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1040px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.sources {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+
+.source {
+  border-top: 1px solid var(--line);
+  padding: 10px 0;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.source:first-child {
+  border-top: 0;
+}
+
+.sourceBody {
+  min-width: 0;
+  flex: 1;
+}
+
+.sourceName {
+  display: block;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-break: anywhere;
+}
+
+.sourceNote {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+.sourceNote.failed {
+  color: var(--bad);
+}
+
+/* A quiet control that only shows itself on hover or focus: removing a source should be
+   possible, not inviting. */
+.remove {
+  border: 0;
+  background: transparent;
+  color: var(--faint);
+  padding: 2px 6px;
+  opacity: 0;
+}
+
+.source:hover .remove,
+.remove:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .remove {
+    opacity: 1;
+  }
+}
+
+.turn {
+  border-top: 1px solid var(--line);
+  padding: 16px 0;
+}
+
+.turn:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.question {
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.answer {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.waiting {
+  color: var(--muted);
+  margin: 0;
+}
+
+/* The citations under an answer. They are the point of the feature, so they are listed
+   rather than hidden behind the marker. */
+.cites {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.cite {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  align-items: baseline;
+}
+
+.marker {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  background: var(--lime-soft);
+  color: var(--lime-ink);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex: none;
+}
+
+.quote {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.quote em {
+  font-style: normal;
+  color: var(--ink);
+}
+
+.asked {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin-top: 16px;
+}
+
+.asked textarea {
+  flex: 1;
+}

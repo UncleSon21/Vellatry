@@ -107,8 +107,20 @@ blindspot into a fix whose outcome is measured.
   can send any question to the team, which notifies them with the question and what the
   reader was shown. A reader sees their own questions, and only the asker can escalate
   one.
-- Next: the rest of M7 (the notebook: sources, citations, saved outputs), and the first
-  design partner.
+- **M7b The notebook:** backend and dashboard done. A team puts the documents it already
+  works from into a notebook — a web page Vellatry fetches, pasted text, a text file — and
+  asks questions of them. Reading is parsing, not extraction: scripts, navigation and
+  footers are left out, and chunking follows the document's own paragraphs so a citation
+  points at a passage somebody can read. Retrieval is hybrid: Postgres full text over the
+  question's words ORed and ranked, the embedding model over its meaning, fused by rank
+  with no weight to tune. The answer is checked after the model writes it: a sentence with
+  no citation, a citation to a passage that was never retrieved, or a figure that is not in
+  the passage it cites is dropped, and when nothing survives the notebook says the sources
+  do not cover it. Reading, embedding and answering are worker jobs; the api records and
+  hands over. Without an embedding service it answers on words alone, and without a model
+  it still reads and searches.
+- Next: notebook sources drawn from Vellatry's own data, saved outputs and recipes, and
+  the first design partner.
 
 | Spike | Question | State |
 | --- | --- | --- |

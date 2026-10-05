@@ -45,6 +45,10 @@ Key decisions in short form: `docs/decisions.md`.
   The exported CMO report omits missing sections. No data means no report.
   (`reports.Build` records why a section is missing in `Snapshot.Omitted`, which only
   the team preview renders.)
+- **Notebook answers are grounded, not just checked.** Every sentence must cite a
+  retrieved passage and may only use figures that passage holds (`notebook.Ground`);
+  anything else is dropped before anyone reads it. A notebook never answers from live
+  tenant data — that is the agent's job — and never from the open web.
 - **Report figures.** A summary or note may only repeat figures the report shows
   (`reports.Figures` / `reports.Unverified`). Model-suggested paragraphs that fail are
   dropped; the team's own words are flagged and need an explicit confirmation.
@@ -117,7 +121,7 @@ Key decisions in short form: `docs/decisions.md`.
 - `cmd/vellatry` one binary, roles `migrate | api | worker`
 - `internal/api` the api role (reads stored results, enqueues work)
 - `internal/platform/` db, jobs, events, gateway, budget, metering
-- `internal/` domain packages (`visibility/...`, `dataforseo`, ...)
+- `internal/` domain packages (`visibility/...`, `dataforseo`, `notebook`, ...)
 - `internal/archtest` architecture rules as tests
 - `spikes/NN-name/` throwaway experiments; may import `internal/`, never imported by it
 - `deploy/` local Postgres (docker compose), the managed-Postgres bootstrap, Gotenberg on Fly

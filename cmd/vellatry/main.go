@@ -291,6 +291,18 @@ func runWorker(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *
 	}
 	embedding.Register(ws)
 
+	notebooks := &workers.Notebooks{Pool: pool, Logger: log, Answerer: drafter,
+		Bus: events.NewBus(nil, domainevents.Subscriptions()...)}
+	if cfg.EmbedURL != "" {
+		notebooks.Embed = &embed.Client{URL: cfg.EmbedURL}
+	} else {
+		log.Info("EMBED_URL not set: notebooks search their sources by words alone (see ml/embed/README.md)")
+	}
+	notebooks.Register(ws)
+	if drafter == nil {
+		log.Info("notebooks cannot answer questions (no ANTHROPIC_API_KEY); sources are still read and searchable")
+	}
+
 	ask := &workers.Agent{Pool: pool, Logger: log, Planner: drafter, Bus: events.NewBus(nil, domainevents.Subscriptions()...)}
 	ask.Register(ws)
 	if drafter == nil {

@@ -325,3 +325,41 @@ func (AgentAnswer) Kind() string { return "agent_answer" }
 
 // InsertOpts: a person is waiting, so give up rather than retry for hours.
 func (AgentAnswer) InsertOpts() river.InsertOpts { return river.InsertOpts{MaxAttempts: 3} }
+
+// NotebookRead turns one source into passages: fetch it if it is a URL, read the text,
+// chunk it. Idempotent — the passages are replaced, never added to.
+type NotebookRead struct {
+	OrgID    string `json:"org_id"`
+	SourceID string `json:"source_id"`
+}
+
+func (NotebookRead) Kind() string { return "notebook_read" }
+
+// InsertOpts: a page that is down now may be up in a minute, and the team is watching
+// the source sit at "reading".
+func (NotebookRead) InsertOpts() river.InsertOpts { return river.InsertOpts{MaxAttempts: 4} }
+
+// NotebookEmbed gives a notebook's new passages their vectors. One pass covers every
+// source that arrived at once.
+type NotebookEmbed struct {
+	OrgID      string `json:"org_id"`
+	NotebookID string `json:"notebook_id"`
+}
+
+func (NotebookEmbed) Kind() string { return "notebook_embed" }
+
+// InsertOpts collapses the burst of a team adding six documents in a row.
+func (NotebookEmbed) InsertOpts() river.InsertOpts {
+	return river.InsertOpts{UniqueOpts: river.UniqueOpts{ByArgs: true, ByPeriod: 30 * time.Second}}
+}
+
+// NotebookAnswer answers one question from a notebook's sources.
+type NotebookAnswer struct {
+	OrgID     string `json:"org_id"`
+	MessageID int64  `json:"message_id"`
+}
+
+func (NotebookAnswer) Kind() string { return "notebook_answer" }
+
+// InsertOpts: somebody is waiting, so a few quick attempts and then an honest failure.
+func (NotebookAnswer) InsertOpts() river.InsertOpts { return river.InsertOpts{MaxAttempts: 3} }

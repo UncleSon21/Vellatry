@@ -65,10 +65,14 @@ const (
 	KeywordRunStarted    = "keywords.run_started"
 	KeywordRunCompleted  = "keywords.run_completed"
 	AgentQuestionAsked   = "agent.question_asked"
-	BrandSuggested       = "brand.suggested"      // the first crawl pre-filled aliases and proposed topics
-	OnboardingCompleted  = "onboarding.completed" // the team finished the setup wizard
-	AgentAnswered        = "agent.answered"
-	HubSignedIn          = "hub.signed_in"
+
+	NotebookSourceAdded   = "notebook.source_added"
+	NotebookSourceRead    = "notebook.source_read"
+	NotebookQuestionAsked = "notebook.question_asked"
+	BrandSuggested        = "brand.suggested"      // the first crawl pre-filled aliases and proposed topics
+	OnboardingCompleted   = "onboarding.completed" // the team finished the setup wizard
+	AgentAnswered         = "agent.answered"
+	HubSignedIn           = "hub.signed_in"
 )
 
 // ReportPayload is the payload of the report events.
@@ -300,6 +304,40 @@ func Subscriptions() []events.Subscription {
 					return nil
 				}
 				return jobargs.ReportPDF{OrgID: s.OrgID, ReportID: p.ReportID, Version: p.Version}
+			},
+		},
+		{
+			// A document the team added is read, chunked and then embedded. Reading is
+			// per source because one slow page must not hold up the others; embedding is
+			// per notebook because one pass covers everything that arrived together.
+			Name:  "read-notebook-source",
+			Kinds: []string{NotebookSourceAdded},
+			Job: func(s events.Stored) river.JobArgs {
+				return jobargs.NotebookRead{OrgID: s.OrgID, SourceID: s.SubjectID}
+			},
+		},
+		{
+			Name:  "embed-notebook-passages",
+			Kinds: []string{NotebookSourceRead},
+			Job: func(s events.Stored) river.JobArgs {
+				var p struct {
+					NotebookID string `json:"notebook_id"`
+				}
+				if json.Unmarshal(s.Payload, &p) != nil || p.NotebookID == "" {
+					return nil
+				}
+				return jobargs.NotebookEmbed{OrgID: s.OrgID, NotebookID: p.NotebookID}
+			},
+		},
+		{
+			Name:  "answer-notebook-question",
+			Kinds: []string{NotebookQuestionAsked},
+			Job: func(s events.Stored) river.JobArgs {
+				id, err := strconv.ParseInt(s.SubjectID, 10, 64)
+				if err != nil {
+					return nil
+				}
+				return jobargs.NotebookAnswer{OrgID: s.OrgID, MessageID: id}
 			},
 		},
 		{
