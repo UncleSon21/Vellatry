@@ -27,7 +27,25 @@ type Message = {
   asked_by: string
   asked_at: string
 }
-type Notebook = { id: string; name: string; sources: number; ready: number; sources_list: Source[]; messages: Message[] }
+type Note = {
+  id: number
+  kind: 'answer' | 'written'
+  title: string
+  body: string
+  citations: Citation[]
+  created_at: string
+}
+type Recipe = { id: number; name: string; question: string; runs: number; last_run_at: string | null }
+type Notebook = {
+  id: string
+  name: string
+  sources: number
+  ready: number
+  sources_list: Source[]
+  messages: Message[]
+  notes: Note[]
+  recipes: Recipe[]
+}
 
 // A passage can be long; the citation shows its opening, which is enough to recognise.
 function opening(text: string) {
@@ -44,6 +62,8 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
   const [url, setUrl] = useState('')
   const [text, setText] = useState('')
   const [question, setQuestion] = useState('')
+  const [note, setNote] = useState('')
+  const [pane, setPane] = useState<'questions' | 'notes'>('questions')
   const file = useRef<HTMLInputElement>(null)
 
   // Reading a page, embedding it and answering all happen in the worker, so the page
@@ -84,10 +104,21 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
     void addSource({ kind: 'file', title: f.name, text: body })
   }
 
-  const ask = () =>
+  const ask = (body: Record<string, unknown> = { question }) =>
     call(async () => {
-      await api(`/v1/notebooks/${id}/ask`, { method: 'POST', body: JSON.stringify({ question }) })
+      await api(`/v1/notebooks/${id}/ask`, { method: 'POST', body: JSON.stringify(body) })
       setQuestion('')
+    })
+
+  const keep = (m: Message) => call(() => api(`/v1/notebooks/${id}/notes`, { method: 'POST', body: JSON.stringify({ message_id: m.id }) }))
+
+  const saveRecipe = (m: Message) =>
+    call(() => api('/v1/notebook-recipes', { method: 'POST', body: JSON.stringify({ message_id: m.id }) }))
+
+  const writeNote = () =>
+    call(async () => {
+      await api(`/v1/notebooks/${id}/notes`, { method: 'POST', body: JSON.stringify({ body: note }) })
+      setNote('')
     })
 
   if (nb.loading) return <Loading what="Opening the notebook" />
@@ -207,69 +238,168 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
           <p className="sub">A PDF or Word document cannot be read yet. Copy the text out and paste it.</p>
         </Card>
 
-        <Card title="Questions">
-          {n.messages.length === 0 ? (
-            <Empty label="Nothing asked yet">
-              {sources.length === 0
-                ? 'Add a source first. Questions are answered from your documents, not from the web.'
-                : 'Ask what the documents say. The answer quotes them and shows you where each sentence came from.'}
-            </Empty>
+        <Card
+          title={pane === 'questions' ? 'Questions' : 'Notes'}
+          actions={
+            <Segmented
+              label="What to show"
+              options={[
+                { value: 'questions', label: `Questions${n.messages.length ? ` (${n.messages.length})` : ''}` },
+                { value: 'notes', label: `Notes${n.notes.length ? ` (${n.notes.length})` : ''}` },
+              ]}
+              value={pane}
+              onChange={setPane}
+            />
+          }
+        >
+          {pane === 'notes' ? (
+            <>
+              {n.notes.length === 0 ? (
+                <Empty label="Nothing kept yet">
+                  Keep an answer you want to come back to, or write down what you concluded. A kept answer keeps its citations, so it still
+                  shows where it came from after the source is gone.
+                </Empty>
+              ) : (
+                n.notes.map((note) => (
+                  <div key={note.id} className={css.turn}>
+                    <p className={css.question}>
+                      {note.title} <span className={css.provenance}>{note.kind === 'answer' ? 'kept from an answer' : 'your note'}</span>
+                    </p>
+                    {/* A short note is its own title; showing both would read as a stutter. */}
+                    {note.body !== note.title && <p className={css.answer}>{note.body}</p>}
+                    {note.citations.length > 0 && (
+                      <ul className={css.cites}>
+                        {note.citations.map((c) => (
+                          <li key={c.marker} className={css.cite}>
+                            <span className={css.marker}>{c.marker}</span>
+                            <span className={css.quote}>
+                              <em>{c.title}</em>, passage {c.seq + 1}: {opening(c.text)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="row" style={{ marginTop: 8 }}>
+                      <span className="sub">{when(note.created_at)}</span>
+                      <div className="spacer" />
+                      <button onClick={() => call(() => api(`/v1/notebooks/${id}/notes/${note.id}`, { method: 'DELETE' }))}>Delete</button>
+                    </div>
+                  </div>
+                ))
+              )}
+
+              <div className={css.asked}>
+                <textarea
+                  rows={2}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="What you concluded, in your own words."
+                  aria-label="A note of your own"
+                />
+                <button onClick={writeNote} disabled={busy || !note.trim()}>
+                  Save note
+                </button>
+              </div>
+            </>
           ) : (
-            n.messages.map((m) => (
-              <div key={m.id} className={css.turn}>
-                <p className={css.question}>{m.question}</p>
-                {m.status === 'thinking' ? (
-                  <p className={css.waiting}>Reading your sources.</p>
-                ) : m.status === 'failed' ? (
-                  <p className={css.waiting}>That did not go through. Ask it again.</p>
-                ) : (
-                  <p className={css.answer}>{m.answer}</p>
-                )}
-                {m.citations.length > 0 && (
-                  <ul className={css.cites}>
-                    {m.citations.map((c) => (
-                      <li key={c.marker} className={css.cite}>
-                        <span className={css.marker}>{c.marker}</span>
-                        <span className={css.quote}>
-                          <em>
-                            {c.url ? (
-                              <a href={c.url} target="_blank" rel="noreferrer noopener">
-                                {c.title}
-                              </a>
-                            ) : (
-                              c.title
-                            )}
-                          </em>
-                          , passage {c.seq + 1}: {opening(c.text)}
-                        </span>
+            <>
+              {n.messages.length === 0 ? (
+                <Empty label="Nothing asked yet">
+                  {sources.length === 0
+                    ? 'Add a source first. Questions are answered from your documents, not from the web.'
+                    : 'Ask what the documents say. The answer quotes them and shows you where each sentence came from.'}
+                </Empty>
+              ) : (
+                n.messages.map((m) => (
+                  <div key={m.id} className={css.turn}>
+                    <p className={css.question}>{m.question}</p>
+                    {m.status === 'thinking' ? (
+                      <p className={css.waiting}>Reading your sources.</p>
+                    ) : m.status === 'failed' ? (
+                      <p className={css.waiting}>That did not go through. Ask it again.</p>
+                    ) : (
+                      <p className={css.answer}>{m.answer}</p>
+                    )}
+                    {m.citations.length > 0 && (
+                      <ul className={css.cites}>
+                        {m.citations.map((c) => (
+                          <li key={c.marker} className={css.cite}>
+                            <span className={css.marker}>{c.marker}</span>
+                            <span className={css.quote}>
+                              <em>
+                                {c.url ? (
+                                  <a href={c.url} target="_blank" rel="noreferrer noopener">
+                                    {c.title}
+                                  </a>
+                                ) : (
+                                  c.title
+                                )}
+                              </em>
+                              , passage {c.seq + 1}: {opening(c.text)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {m.status !== 'thinking' && (
+                      <div className={css.keep}>
+                        <button onClick={() => keep(m)} disabled={busy}>
+                          Keep as a note
+                        </button>
+                        <button onClick={() => saveRecipe(m)} disabled={busy}>
+                          Save the question
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+
+              {n.recipes.length > 0 && (
+                <div className={css.recipes}>
+                  <p className="sub">Saved questions. Ask one of this notebook:</p>
+                  <ul className={css.recipeList}>
+                    {n.recipes.map((c) => (
+                      <li key={c.id} className={css.recipe}>
+                        <button className={css.run} onClick={() => ask({ recipe_id: c.id })} disabled={busy || ready === 0} title={c.question}>
+                          {c.name}
+                        </button>
+                        <span className="sub">{c.runs === 0 ? 'not used yet' : `asked ${c.runs} times`}</span>
+                        <button
+                          className={css.remove}
+                          aria-label={`Forget ${c.name}`}
+                          onClick={() => call(() => api(`/v1/notebook-recipes/${c.id}`, { method: 'DELETE' }))}
+                        >
+                          Forget
+                        </button>
                       </li>
                     ))}
                   </ul>
-                )}
-              </div>
-            ))
-          )}
+                </div>
+              )}
 
-          <div className={css.asked}>
-            <textarea
-              rows={2}
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && question.trim()) {
-                  e.preventDefault()
-                  void ask()
-                }
-              }}
-              placeholder="What do these documents say about…"
-              aria-label="Your question"
-              maxLength={500}
-            />
-            <button className="primary" onClick={ask} disabled={busy || !question.trim() || ready === 0}>
-              Ask
-            </button>
-          </div>
-          {ready === 0 && sources.length > 0 && <p className="sub">Questions can be asked once a source has been read.</p>}
+              <div className={css.asked}>
+                <textarea
+                  rows={2}
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && question.trim()) {
+                      e.preventDefault()
+                      void ask()
+                    }
+                  }}
+                  placeholder="What do these documents say about…"
+                  aria-label="Your question"
+                  maxLength={500}
+                />
+                <button className="primary" onClick={() => ask()} disabled={busy || !question.trim() || ready === 0}>
+                  Ask
+                </button>
+              </div>
+              {ready === 0 && sources.length > 0 && <p className="sub">Questions can be asked once a source has been read.</p>}
+            </>
+          )}
         </Card>
       </div>
     </>

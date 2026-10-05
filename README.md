@@ -119,8 +119,14 @@ blindspot into a fix whose outcome is measured.
   do not cover it. Reading, embedding and answering are worker jobs; the api records and
   hands over. Without an embedding service it answers on words alone, and without a model
   it still reads and searches.
-- Next: notebook sources drawn from Vellatry's own data, saved outputs and recipes, and
-  the first design partner.
+  What a session leaves behind is kept: an answer worth coming back to becomes a note,
+  with the passages it was said from copied in, so it still shows where it came from after
+  the source is gone and its words are never edited afterwards. The team's own notes sit
+  beside those and are theirs to rewrite. Notes are outputs and nothing retrieves them, so
+  an answer can never be grounded in an earlier answer. A question worth asking again
+  becomes a recipe, which belongs to the organisation rather than to one notebook and can
+  be run against any of them.
+- Next: notebook sources drawn from Vellatry's own data, and the first design partner.
 
 | Spike | Question | State |
 | --- | --- | --- |

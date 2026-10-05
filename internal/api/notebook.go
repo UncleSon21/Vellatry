@@ -59,6 +59,8 @@ type notebookOut struct {
 	notebook.Notebook
 	SourceList []notebook.Source  `json:"sources_list"`
 	Messages   []notebook.Message `json:"messages"`
+	Notes      []notebook.Note    `json:"notes"`
+	Recipes    []notebook.Recipe  `json:"recipes"`
 }
 
 func (s *Server) getNotebook(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +74,15 @@ func (s *Server) getNotebook(w http.ResponseWriter, r *http.Request) {
 		if out.SourceList, err = notebook.Sources(ctx, tx, id); err != nil {
 			return err
 		}
-		out.Messages, err = notebook.Messages(ctx, tx, id, 200)
+		if out.Messages, err = notebook.Messages(ctx, tx, id, 200); err != nil {
+			return err
+		}
+		if out.Notes, err = notebook.Notes(ctx, tx, id, 100); err != nil {
+			return err
+		}
+		// Recipes belong to the organisation, not to this notebook, and the page offers
+		// them here because this is where one is run.
+		out.Recipes, err = notebook.Recipes(ctx, tx, 50)
 		return err
 	})
 	if err != nil {
@@ -80,6 +90,7 @@ func (s *Server) getNotebook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out.SourceList, out.Messages = nonNilT(out.SourceList), nonNilT(out.Messages)
+	out.Notes, out.Recipes = nonNilT(out.Notes), nonNilT(out.Recipes)
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -197,10 +208,12 @@ func (s *Server) deleteSource(w http.ResponseWriter, r *http.Request) {
 }
 
 // askNotebook records a question and hands it to the worker. The answer arrives on the
-// event stream the dashboard is already following.
+// event stream the dashboard is already following. A recipe id asks that recipe's
+// question of this notebook, which is the whole of what running a recipe means.
 func (s *Server) askNotebook(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Question string `json:"question"`
+		RecipeID int64  `json:"recipe_id"`
 	}
 	if err := decode(r, &in); err != nil {
 		s.fail(w, r, err)
@@ -210,8 +223,19 @@ func (s *Server) askNotebook(w http.ResponseWriter, r *http.Request) {
 	var out notebook.Message
 	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
 		org, user := sessionFrom(ctx).OrgID, sessionFrom(ctx).UserID
+		question := in.Question
+		if in.RecipeID != 0 {
+			c, err := notebook.LoadRecipe(ctx, tx, in.RecipeID)
+			if err != nil {
+				return err
+			}
+			question = c.Question
+			if err := notebook.RecipeRun(ctx, tx, c.ID); err != nil {
+				return err
+			}
+		}
 		var err error
-		if out, err = notebook.Ask(ctx, tx, org, id, user, in.Question); err != nil {
+		if out, err = notebook.Ask(ctx, tx, org, id, user, question); err != nil {
 			return err
 		}
 		_, err = s.Bus.Emit(ctx, tx, org, events.Event{Kind: domainevents.NotebookQuestionAsked,
@@ -246,6 +270,10 @@ func notebookError(err error) error {
 		return notFound("That notebook is gone.")
 	case errors.Is(err, notebook.ErrAnswersWaiting):
 		return conflict("You already have questions waiting on an answer here. They will appear in a moment.")
+	case errors.Is(err, notebook.ErrFrozen):
+		// Not a malformed request: a note kept from an answer is a record of what was
+		// said, and a record that can be rewritten proves nothing.
+		return conflict("A note kept from an answer keeps its words. Write your own note instead, or rename this one.")
 	case err != nil && strings.HasPrefix(err.Error(), "notebook: "):
 		// Create, AddSource and Ask refuse an empty or oversize value by name.
 		return badRequest(strings.ToUpper(err.Error()[10:11]) + err.Error()[11:] + ".")
@@ -268,4 +296,159 @@ func firstLine(text string) string {
 		line = strings.TrimSpace(string(r[:80])) + "…"
 	}
 	return line
+}
+
+// ---- notes and recipes -------------------------------------------------------------
+
+// addNote keeps something out of the notebook: an answer it gave, or the team's own
+// words. Both live in the same list because both are findings; only their provenance
+// differs, and that is recorded rather than blurred.
+func (s *Server) addNote(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		MessageID int64  `json:"message_id"`
+		Title     string `json:"title"`
+		Body      string `json:"body"`
+	}
+	if err := decode(r, &in); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	id := r.PathValue("id")
+	var out notebook.Note
+	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
+		org, user := sessionFrom(ctx).OrgID, sessionFrom(ctx).UserID
+		if in.MessageID == 0 {
+			var err error
+			out, err = notebook.WriteNote(ctx, tx, org, id, in.Title, in.Body, user)
+			return err
+		}
+		m, err := notebook.LoadMessage(ctx, tx, in.MessageID)
+		if err != nil {
+			return err
+		}
+		if m.Notebook != id {
+			return notebook.ErrNotFound
+		}
+		out, err = notebook.KeepAnswer(ctx, tx, org, m.ID, in.Title, user)
+		return err
+	})
+	if err != nil {
+		s.fail(w, r, notebookError(err))
+		return
+	}
+	writeJSON(w, http.StatusCreated, out)
+}
+
+func (s *Server) patchNote(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Title string `json:"title"`
+		Body  string `json:"body"`
+	}
+	if err := decode(r, &in); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	var out notebook.Note
+	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
+		n, err := notebook.LoadNote(ctx, tx, pathInt(r, "noteId"))
+		if err != nil {
+			return err
+		}
+		if n.Notebook != r.PathValue("id") {
+			return notebook.ErrNotFound
+		}
+		out, err = notebook.EditNote(ctx, tx, n.ID, in.Title, in.Body)
+		return err
+	})
+	if err != nil {
+		s.fail(w, r, notebookError(err))
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) deleteNote(w http.ResponseWriter, r *http.Request) {
+	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
+		n, err := notebook.LoadNote(ctx, tx, pathInt(r, "noteId"))
+		if err != nil {
+			return err
+		}
+		if n.Notebook != r.PathValue("id") {
+			return notebook.ErrNotFound
+		}
+		return notebook.DeleteNote(ctx, tx, n.ID)
+	})
+	if err != nil {
+		s.fail(w, r, notebookError(err))
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) listRecipes(w http.ResponseWriter, r *http.Request) {
+	var out []notebook.Recipe
+	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
+		var err error
+		out, err = notebook.Recipes(ctx, tx, limitParam(r, 100, 200))
+		return err
+	})
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, nonNilT(out))
+}
+
+// addRecipe keeps a question to ask again, of this notebook or the next one.
+func (s *Server) addRecipe(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Name      string `json:"name"`
+		Question  string `json:"question"`
+		MessageID int64  `json:"message_id"`
+	}
+	if err := decode(r, &in); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	var out notebook.Recipe
+	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
+		org, user := sessionFrom(ctx).OrgID, sessionFrom(ctx).UserID
+		question := in.Question
+		if in.MessageID != 0 {
+			m, err := notebook.LoadMessage(ctx, tx, in.MessageID)
+			if err != nil {
+				return err
+			}
+			question = m.Question
+		}
+		var err error
+		out, err = notebook.SaveRecipe(ctx, tx, org, in.Name, question, user)
+		return err
+	})
+	if err != nil {
+		s.fail(w, r, notebookError(err))
+		return
+	}
+	writeJSON(w, http.StatusCreated, out)
+}
+
+func (s *Server) deleteRecipe(w http.ResponseWriter, r *http.Request) {
+	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
+		return notebook.DeleteRecipe(ctx, tx, pathInt(r, "recipeId"))
+	})
+	if err != nil {
+		s.fail(w, r, notebookError(err))
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// pathInt reads a numeric path value. A value that is not a number is not an id, so it
+// becomes one no row has rather than an error of its own.
+func pathInt(r *http.Request, name string) int64 {
+	v, err := strconv.ParseInt(r.PathValue(name), 10, 64)
+	if err != nil {
+		return 0
+	}
+	return v
 }

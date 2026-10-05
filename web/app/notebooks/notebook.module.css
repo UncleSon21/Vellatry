@@ -68,6 +68,7 @@
 }
 
 .source:hover .remove,
+.recipe:hover .remove,
 .remove:focus-visible {
   opacity: 1;
 }
@@ -149,4 +150,74 @@
 
 .asked textarea {
   flex: 1;
+}
+
+/* Where a kept note came from: the notebook's own words, or the team's. Both are
+   findings and sit in one list, so only this says which is which. */
+.provenance {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--faint);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+/* Keeping an answer is a second thought, not the point of reading one, so these sit
+   quietly under it. */
+.keep {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.keep button {
+  font-size: 13px;
+  padding: 4px 10px;
+  color: var(--muted);
+}
+
+.keep button:hover:not(:disabled) {
+  color: var(--ink);
+}
+
+.recipes {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 12px;
+}
+
+.recipeList {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.recipe {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 4px 0;
+}
+
+.recipe .run {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  padding: 2px 0;
+  text-align: left;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.recipe .run:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+/* .sub is a global class, so it has to be named as one here or the module would hash it
+   and this would match nothing. */
+.recipe :global(.sub) {
+  flex: none;
 }

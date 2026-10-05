@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -140,6 +141,95 @@ func TestNotebookAPI(t *testing.T) {
 	}
 	if code, _, list := other.do("GET", "/v1/notebooks", nil); code != http.StatusOK || len(list) != 0 {
 		t.Errorf("another organisation's list = %d %v", code, list)
+	}
+
+	// Saved outputs: a kept answer, the team's own note, and a recipe to ask again.
+	code, body, _ = user.do("POST", "/v1/notebooks/"+id+"/ask", map[string]any{"question": "What is in here?"})
+	if code != http.StatusConflict {
+		t.Fatalf("expected the waiting limit to still hold: %d %v", code, body)
+	}
+	var msgID int64
+	if err := db.InTenant(ctx, pool, org, func(ctx context.Context, tx pgx.Tx) error {
+		msgs, err := notebook.Messages(ctx, tx, id, 10)
+		if err != nil {
+			return err
+		}
+		msgID = msgs[0].ID
+		return notebook.SaveAnswer(ctx, tx, msgID, "Rival charges $89 a month [1].", "answered",
+			[]notebook.Citation{{Marker: 1, Title: "Rival pricing", Text: "Rival charges $89 a month."}}, 0)
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	code, body, _ = user.do("POST", "/v1/notebooks/"+id+"/notes", map[string]any{"message_id": msgID})
+	if code != http.StatusCreated || body["kind"] != "answer" || len(body["citations"].([]any)) != 1 {
+		t.Fatalf("keeping an answer: %d %v", code, body)
+	}
+	noteID := int64(body["id"].(float64))
+	// Its words are the notebook's, so they stay; its name is the team's.
+	if code, _, _ := user.do("PATCH", fmt.Sprintf("/v1/notebooks/%s/notes/%d", id, noteID),
+		map[string]any{"body": "Rival charges $49."}); code != http.StatusConflict {
+		t.Errorf("rewriting a kept answer: %d, want a conflict the page can explain", code)
+	}
+	if code, body, _ := user.do("PATCH", fmt.Sprintf("/v1/notebooks/%s/notes/%d", id, noteID),
+		map[string]any{"title": "Rival pricing, August"}); code != http.StatusOK || body["title"] != "Rival pricing, August" {
+		t.Errorf("retitling a kept answer: %d %v", code, body)
+	}
+	if code, body, _ := user.do("POST", "/v1/notebooks/"+id+"/notes",
+		map[string]any{"body": "They moved to annual billing in July."}); code != http.StatusCreated || body["kind"] != "written" {
+		t.Errorf("writing a note: %d %v", code, body)
+	}
+
+	code, body, _ = user.do("POST", "/v1/notebook-recipes", map[string]any{"message_id": msgID, "name": "Competitor pricing"})
+	if code != http.StatusCreated || body["question"] == "" {
+		t.Fatalf("saving a recipe: %d %v", code, body)
+	}
+	recipeID := int64(body["id"].(float64))
+
+	// The page carries its notes and the organisation's recipes.
+	code, body, _ = user.do("GET", "/v1/notebooks/"+id, nil)
+	if code != http.StatusOK || len(body["notes"].([]any)) != 2 || len(body["recipes"].([]any)) != 1 {
+		t.Errorf("the page = %v", body)
+	}
+
+	// Running a recipe asks its question of this notebook and counts the run.
+	if err := db.InTenant(ctx, pool, org, func(ctx context.Context, tx pgx.Tx) error {
+		msgs, err := notebook.Messages(ctx, tx, id, 10)
+		if err != nil {
+			return err
+		}
+		for _, m := range msgs {
+			if m.Status == "thinking" {
+				if err := notebook.SaveAnswer(ctx, tx, m.ID, "x", "unanswerable", nil, 0); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	code, body, _ = user.do("POST", "/v1/notebooks/"+id+"/ask", map[string]any{"recipe_id": recipeID})
+	if code != http.StatusCreated || body["question"] != "What does Rival charge?" {
+		t.Fatalf("running a recipe should ask its own question of this notebook: %d %v", code, body)
+	}
+	if code, _, list := user.do("GET", "/v1/notebook-recipes", nil); code != http.StatusOK ||
+		list[0].(map[string]any)["runs"].(float64) != 1 {
+		t.Errorf("a run was not counted: %v", list)
+	}
+
+	// Another organisation cannot see the recipes, or touch a note of this notebook.
+	if code, _, list := other.do("GET", "/v1/notebook-recipes", nil); code != http.StatusOK || len(list) != 0 {
+		t.Errorf("another organisation's recipes = %v", list)
+	}
+	if code, _, _ := other.do("DELETE", fmt.Sprintf("/v1/notebooks/%s/notes/%d", id, noteID), nil); code != http.StatusNotFound {
+		t.Errorf("another organisation deleted a note: %d", code)
+	}
+	if code, _, _ := user.do("DELETE", fmt.Sprintf("/v1/notebooks/%s/notes/%d", id, noteID), nil); code != http.StatusNoContent {
+		t.Errorf("delete note: %d", code)
+	}
+	if code, _, _ := user.do("DELETE", fmt.Sprintf("/v1/notebook-recipes/%d", recipeID), nil); code != http.StatusNoContent {
+		t.Errorf("delete recipe: %d", code)
 	}
 
 	if code, _, _ := user.do("DELETE", "/v1/notebooks/"+id, nil); code != http.StatusNoContent {
