@@ -23,9 +23,23 @@ type View struct {
 	Draft       bool
 	Version     int
 	PublishedAt *time.Time
-	BackURL     string // hub: the report list
-	PDFURL      string // hub: set only when the PDF exists
-	Print       bool   // rendering for the PDF: no navigation
+	BackURL     string    // hub: the report list
+	PDFURL      string    // hub: set only when the PDF exists
+	Print       bool      // rendering for the PDF: no navigation
+	Ask         *AskPanel // hub: the question panel. nil in the PDF and the team preview
+}
+
+// AskPanel is the report bot's panel: the questions this reader has asked of this version,
+// and where to put a new one.
+//
+// It is deliberately absent from the PDF. A PDF is a file that gets forwarded and kept,
+// and a conversation printed into one reads as part of the report itself, which it is
+// not: the report is what the team published and stands behind.
+type AskPanel struct {
+	Action    string     // POST target for a new question
+	FollowUp  string     // POST target for "ask the team to look into this"
+	Questions []Question // this reader's own, oldest first
+	Error     string     // what was wrong with the question just sent
 }
 
 var accentRE = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
@@ -162,6 +176,14 @@ td.num,th.num{text-align:right;white-space:nowrap}td.num{font-variant-numeric:ta
 tr.bold td{font-weight:600}
 ul.bullets{margin:0;padding-left:18px}
 footer{color:var(--faint);font-size:12px;text-align:center;margin-top:24px}
+.ask .qa{border-top:1px solid var(--line);padding:14px 0 10px}
+.ask .q{font-weight:600;margin:0 0 6px}
+.ask .a p{margin:0 0 8px}
+.ask .waiting{color:var(--muted);font-size:14px;margin:0 0 8px}
+.ask .err{color:var(--bad);font-size:14px;margin:0 0 10px}
+.ask textarea{width:100%;font:inherit;color:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;resize:vertical}
+.ask button{font:inherit;background:var(--accent);color:#fff;border:0;border-radius:8px;padding:8px 16px;cursor:pointer}
+.ask form.followup button{background:none;color:var(--muted);border:1px solid var(--line);padding:4px 10px;font-size:13px}
 @media (max-width:600px){header.cover,section{padding:20px 16px}.cover h1{font-size:22px}table{font-size:13px}}
 @page{size:A4;margin:14mm}
 @media print{body{background:#fff;font-size:12px}.page{max-width:none;padding:0}.nav{display:none}
@@ -188,6 +210,21 @@ footer{color:var(--faint);font-size:12px;text-align:center;margin-top:24px}
 {{range $r, $row := .Rows}}<tr{{if bold $t $r}} class="bold"{{end}}>{{range $i, $c := $row}}<td{{if $t.Numeric $i}} class="num"{{end}}>{{$c}}</td>{{end}}</tr>{{end}}</tbody></table>{{end}}
 {{if .Bullets}}<ul class="bullets">{{range .Bullets}}<li>{{.}}</li>{{end}}</ul>{{end}}
 </section>{{end}}
+{{if not .V.Print}}{{with .V.Ask}}<section class="ask" id="ask">
+<h2>Ask about this report</h2>
+<p class="intro">Answers come only from this report. Nothing is added from anywhere else, and a figure the report does not show will not appear in an answer.</p>
+{{range .Questions}}<div class="qa"><p class="q">{{.Question}}</p>
+{{if eq .Status "asked"}}<p class="waiting">Working on it. Refresh this page in a moment.</p>
+{{else if eq .Status "failed"}}<p class="waiting">That did not work this time.</p>
+{{else}}<div class="a">{{range paragraphs .Answer}}<p>{{.}}</p>{{end}}</div>{{end}}
+{{if ne .Status "asked"}}{{if .FollowUp}}<p class="waiting">Sent to the team. They will come back to you.</p>{{else}}<form class="followup" method="post" action="{{$.V.Ask.FollowUp}}"><input type="hidden" name="question" value="{{.ID}}"><input type="hidden" name="v" value="{{$.V.Version}}"><button type="submit">Ask the team to look into this</button></form>{{end}}{{end}}
+</div>{{end}}
+{{if .Error}}<p class="err">{{.Error}}</p>{{end}}
+<form method="post" action="{{.Action}}" style="margin-top:14px">
+<input type="hidden" name="v" value="{{$.V.Version}}">
+<textarea name="question" rows="2" maxlength="300" placeholder="What would you like to know about this period?" required aria-label="Your question"></textarea>
+<p style="margin:10px 0 0"><button type="submit">Ask</button></p></form>
+</section>{{end}}{{end}}
 <footer>Figures from {{.Sources}}. Prepared with Vellatry.</footer>
 </div></body></html>`))
 

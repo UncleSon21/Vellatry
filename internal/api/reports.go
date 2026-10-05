@@ -520,6 +520,41 @@ func (s *Server) reportViews(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, nonNilT(out))
 }
 
+type questionOut struct {
+	ID       int64      `json:"id"`
+	Version  int        `json:"version"`
+	AskedBy  string     `json:"asked_by"`
+	Question string     `json:"question"`
+	Answer   string     `json:"answer"`
+	Status   string     `json:"status"`
+	Dropped  int        `json:"dropped"`
+	FollowUp *time.Time `json:"follow_up"`
+	AskedAt  time.Time  `json:"asked_at"`
+}
+
+// reportQuestions is the writer's side of the report bot: what readers asked of this
+// report, what they were shown, and what it could not answer.
+func (s *Server) reportQuestions(w http.ResponseWriter, r *http.Request) {
+	var out []questionOut
+	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
+		qs, err := reports.AllQuestions(ctx, tx, r.PathValue("id"), limitParam(r, 100, 500))
+		if err != nil {
+			return err
+		}
+		out = make([]questionOut, 0, len(qs))
+		for _, q := range qs {
+			out = append(out, questionOut{ID: q.ID, Version: q.Version, AskedBy: q.AskedBy, Question: q.Question,
+				Answer: q.Answer, Status: q.Status, Dropped: q.Dropped, FollowUp: q.FollowUp, AskedAt: q.AskedAt})
+		}
+		return nil
+	})
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, nonNilT(out))
+}
+
 // ---- hub settings --------------------------------------------------------------------
 
 // Free email providers can never be allowed: anyone could then open the hub.

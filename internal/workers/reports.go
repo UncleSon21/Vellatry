@@ -62,6 +62,8 @@ func (r *Reports) Register(ws *river.Workers) {
 	river.AddWorker(ws, &reportPDFWorker{r: r})
 	river.AddWorker(ws, &reportNotifyWorker{r: r})
 	river.AddWorker(ws, &hubLoginEmailWorker{r: r})
+	river.AddWorker(ws, &reportAnswerWorker{r: r})
+	river.AddWorker(ws, &reportFollowUpWorker{r: r})
 }
 
 // PeriodicJobs checks hourly for series whose period is due (see Automation for why

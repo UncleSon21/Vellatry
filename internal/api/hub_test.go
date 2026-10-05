@@ -89,31 +89,7 @@ func TestReportsHub(t *testing.T) {
 	hubURL := body["url"].(string)
 	base := strings.TrimPrefix(hubURL, srv.URL)
 
-	jar, _ := cookiejar.New(nil)
-	browser := &http.Client{Jar: jar, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	get := func(path string) (int, string, http.Header) {
-		t.Helper()
-		resp, err := browser.Get(srv.URL + path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-		b, _ := io.ReadAll(resp.Body)
-		return resp.StatusCode, string(b), resp.Header
-	}
-	post := func(path string, form url.Values, origin string) (int, string) {
-		t.Helper()
-		req, _ := http.NewRequest("POST", srv.URL+path, strings.NewReader(form.Encode()))
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("Origin", origin)
-		resp, err := browser.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-		b, _ := io.ReadAll(resp.Body)
-		return resp.StatusCode, string(b)
-	}
+	get, post := hubBrowser(t, srv.URL)
 
 	code, page, hdr := get(base)
 	if code != http.StatusOK || !strings.Contains(page, "Email me a sign-in link") || hdr.Get("X-Robots-Tag") != "noindex, nofollow" || hdr.Get("Cache-Control") != "private, no-store" {
@@ -212,3 +188,38 @@ func TestReportsHub(t *testing.T) {
 }
 
 func ptr(v float64) *float64 { return &v }
+
+// hubBrowser is one reader with a cookie jar: the hub is HTML and forms, so the tests
+// drive it the way a browser does, redirects included.
+func hubBrowser(t *testing.T, base string) (
+	get func(path string) (int, string, http.Header),
+	post func(path string, form url.Values, origin string) (int, string),
+) {
+	t.Helper()
+	jar, _ := cookiejar.New(nil)
+	browser := &http.Client{Jar: jar, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	get = func(path string) (int, string, http.Header) {
+		t.Helper()
+		resp, err := browser.Get(base + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(b), resp.Header
+	}
+	post = func(path string, form url.Values, origin string) (int, string) {
+		t.Helper()
+		req, _ := http.NewRequest("POST", base+path, strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Origin", origin)
+		resp, err := browser.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(b)
+	}
+	return get, post
+}

@@ -3,8 +3,8 @@
 import { use, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { API, api, authHeaders, useApi } from '@/lib/api'
-import { Card, ErrorNote, Loading, Pill } from '@/components/ui'
-import { day } from '@/lib/format'
+import { Card, ErrorNote, Loading, Pill, Table } from '@/components/ui'
+import { day, when } from '@/lib/format'
 
 type Report = {
   id: string
@@ -20,9 +20,28 @@ type Report = {
   snapshot: { period?: { label?: string }; omitted?: { section: string; reason: string }[]; warnings?: { section: string; reason: string }[] }
 }
 
+type Question = {
+  id: number
+  version: number
+  asked_by: string
+  question: string
+  answer: string
+  status: string
+  follow_up: string | null
+  asked_at: string
+}
+
+// What the report bot said, in the words the reader saw.
+function answered(q: Question) {
+  if (q.status === 'asked') return <span className="sub">Waiting for an answer.</span>
+  if (q.status === 'failed') return <span className="sub">The answer did not come through.</span>
+  return <span style={{ whiteSpace: 'pre-line' }}>{q.answer}</span>
+}
+
 export default function ReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const report = useApi<Report>(`/v1/reports/${id}`)
+  const questions = useApi<Question[]>(`/v1/reports/${id}/questions`)
   const [summary, setSummary] = useState('')
   const [preview, setPreview] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -130,6 +149,36 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
           <button onClick={save}>Save</button>
           {r.unverified.length > 0 && <span className="bad">Not in the report: {r.unverified.join(', ')}</span>}
         </div>
+      </Card>
+
+      <Card title="What readers asked" sub="Answered from this report alone. A question it could not answer is the clearest thing the report can tell you.">
+        <Table
+          head={['Asked', 'Reader', 'Question', 'What they were shown', 'Version']}
+          num={[4]}
+          of={questions}
+          empty="Nobody has asked anything yet."
+          rows={(questions.data ?? []).map((q) => [
+            when(q.asked_at),
+            q.asked_by,
+            <span key="q">
+              {q.question}
+              {q.status === 'unanswerable' && (
+                <>
+                  {' '}
+                  <Pill tone="warn">not in the report</Pill>
+                </>
+              )}
+              {q.follow_up && (
+                <>
+                  {' '}
+                  <Pill>sent to you</Pill>
+                </>
+              )}
+            </span>,
+            answered(q),
+            q.version,
+          ])}
+        />
       </Card>
 
       <Card title="Preview" sub="Exactly what the CMO sees, and what the PDF is made from.">

@@ -98,7 +98,17 @@ blindspot into a fix whose outcome is measured.
   Brand and Connections, each reading the api and nothing else, following the event stream
   instead of polling. The agent is a panel on every page and sends the page and its
   date range with the question.
-- Next: M7 (notebook and the CMO report bot), and the first design partner.
+- **M7a The report bot:** the CMO reads a published report and asks it questions. The
+  answer is written from that version's frozen snapshot and nothing else, through the
+  same figure check the suggested summary passes: a sentence carrying a number the report
+  does not show is dropped, and when nothing survives the answer is that the report does
+  not cover it. The panel is on the web view and never in the PDF. Answering happens in
+  the worker, so the page says a question is waiting and fills in the answer; a reader
+  can send any question to the team, which notifies them with the question and what the
+  reader was shown. A reader sees their own questions, and only the asker can escalate
+  one.
+- Next: the rest of M7 (the notebook: sources, citations, saved outputs), and the first
+  design partner.
 
 | Spike | Question | State |
 | --- | --- | --- |

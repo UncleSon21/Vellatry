@@ -261,9 +261,13 @@ func (s *Server) hubReport(w http.ResponseWriter, r *http.Request, h hubCtx) {
 	}
 	id := r.PathValue("id")
 	var v reports.Version
+	var asked []reports.Question
 	err = db.InTenant(r.Context(), s.Pool, h.org, func(ctx context.Context, tx pgx.Tx) error {
 		var err error
 		if v, err = reports.LoadVersion(ctx, tx, id, versionParam(r)); err != nil {
+			return err
+		}
+		if asked, err = reports.QuestionsBy(ctx, tx, id, v.Version, email); err != nil {
 			return err
 		}
 		return reports.LogView(ctx, tx, h.org, id, v.Version, email, "web")
@@ -278,6 +282,9 @@ func (s *Server) hubReport(w http.ResponseWriter, r *http.Request, h hubCtx) {
 	}
 	view := reports.View{Snapshot: v.Snapshot, Title: v.Title, Summary: v.Summary, Notes: v.Notes, Accent: v.Accent,
 		Version: v.Version, PublishedAt: &v.PublishedAt, BackURL: h.base}
+	base := h.base + "/reports/" + id
+	view.Ask = &reports.AskPanel{Action: base + "/ask", FollowUp: base + "/follow-up", Questions: asked,
+		Error: askError(r.URL.Query().Get("ask"), h.orgName)}
 	if v.PDFStatus == "ready" {
 		view.PDFURL = h.base + "/reports/" + id + "/pdf?v=" + strconv.Itoa(v.Version)
 	}
@@ -325,4 +332,148 @@ func (s *Server) hubPDF(w http.ResponseWriter, r *http.Request, h hubCtx) {
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `inline; filename="`+name+`.pdf"`)
 	_, _ = w.Write(doc)
+}
+
+// askError turns the marker on the redirect back into a sentence. A failed question is
+// posted and redirected like any other form, so what went wrong travels in the URL; it
+// is a fixed set of markers, never text from the request.
+func askError(marker, org string) string {
+	switch marker {
+	case "empty":
+		return "Type a question first."
+	case "long":
+		return "That is too long for a question. Keep it under " + strconv.Itoa(reports.MaxQuestion) + " characters, or ask the team directly."
+	case "waiting":
+		return "You already have questions waiting on an answer. They will appear here shortly."
+	case "failed":
+		return "That did not go through. Try again in a moment."
+	}
+	return ""
+}
+
+// hubAsk records a question and leaves the answering to the worker: the api never waits
+// on a model, least of all with a browser holding the connection open.
+func (s *Server) hubAsk(w http.ResponseWriter, r *http.Request, h hubCtx) {
+	email, err := s.viewer(r, h)
+	if err != nil {
+		http.Redirect(w, r, h.base, http.StatusSeeOther)
+		return
+	}
+	if !s.sameOrigin(r) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 8<<10)
+	id := r.PathValue("id")
+	question := strings.TrimSpace(r.PostFormValue("question"))
+	back := h.base + "/reports/" + id
+	if v := postedVersion(r); v > 0 {
+		back += "?v=" + strconv.Itoa(v)
+	}
+
+	var marker string
+	err = db.InTenant(r.Context(), s.Pool, h.org, func(ctx context.Context, tx pgx.Tx) error {
+		// The version is read rather than trusted: a question is answered from the
+		// snapshot of the version it was asked of, so the number has to be a real
+		// published one.
+		v, err := reports.LoadVersion(ctx, tx, id, postedVersion(r))
+		if err != nil {
+			return err
+		}
+		qid, err := reports.Ask(ctx, tx, h.org, id, v.Version, email, question)
+		switch {
+		case errors.Is(err, reports.ErrQuestionsWaiting):
+			marker = "waiting"
+			return nil
+		case errors.Is(err, reports.ErrEmptyQuestion):
+			marker = "empty"
+			return nil
+		case errors.Is(err, reports.ErrQuestionTooLong):
+			marker = "long"
+			return nil
+		case err != nil:
+			return err
+		}
+		_, err = s.Bus.Emit(ctx, tx, h.org, events.Event{Kind: domainevents.ReportQuestionAsked,
+			SubjectID: strconv.FormatInt(qid, 10), Actor: email,
+			Payload: map[string]any{"report_id": id, "version": v.Version}})
+		return err
+	})
+	switch {
+	case errors.Is(err, reports.ErrNotFound):
+		s.hubNotFound(w)
+		return
+	case err != nil:
+		s.Logger.ErrorContext(r.Context(), "hub question not recorded", "path", r.URL.Path, "error", err)
+		marker = "failed"
+	}
+	if marker != "" {
+		sep := "?"
+		if strings.Contains(back, "?") {
+			sep = "&"
+		}
+		back += sep + "ask=" + marker
+	}
+	http.Redirect(w, r, back+"#ask", http.StatusSeeOther)
+}
+
+// hubFollowUp records that the reader wants a person to look at it, and tells the team.
+func (s *Server) hubFollowUp(w http.ResponseWriter, r *http.Request, h hubCtx) {
+	email, err := s.viewer(r, h)
+	if err != nil {
+		http.Redirect(w, r, h.base, http.StatusSeeOther)
+		return
+	}
+	if !s.sameOrigin(r) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 4<<10)
+	id := r.PathValue("id")
+	qid, convErr := strconv.ParseInt(r.PostFormValue("question"), 10, 64)
+	if convErr != nil {
+		s.hubNotFound(w)
+		return
+	}
+	err = db.InTenant(r.Context(), s.Pool, h.org, func(ctx context.Context, tx pgx.Tx) error {
+		q, err := reports.LoadQuestion(ctx, tx, qid)
+		if err != nil {
+			return err
+		}
+		// Only the person who asked may escalate their own question, and only on the
+		// report they are reading.
+		if q.AskedBy != email || q.ReportID != id {
+			return reports.ErrNotFound
+		}
+		if q.FollowUp != nil {
+			return nil // already sent; the button is gone but a resubmit is harmless
+		}
+		if err := reports.MarkFollowUp(ctx, tx, qid); err != nil {
+			return err
+		}
+		_, err = s.Bus.Emit(ctx, tx, h.org, events.Event{Kind: domainevents.ReportFollowUpAsked,
+			SubjectID: strconv.FormatInt(qid, 10), Actor: email, Payload: map[string]any{"report_id": id}})
+		return err
+	})
+	switch {
+	case errors.Is(err, reports.ErrNotFound):
+		s.hubNotFound(w)
+		return
+	case err != nil:
+		s.hubError(w, r, err)
+		return
+	}
+	back := h.base + "/reports/" + id
+	if v := postedVersion(r); v > 0 {
+		back += "?v=" + strconv.Itoa(v)
+	}
+	http.Redirect(w, r, back+"#ask", http.StatusSeeOther)
+}
+
+func postedVersion(r *http.Request) int {
+	v, err := strconv.Atoi(r.PostFormValue("v"))
+	if err != nil || v < 0 {
+		return 0
+	}
+	return v
 }

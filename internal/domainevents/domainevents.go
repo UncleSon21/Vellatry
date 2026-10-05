@@ -6,6 +6,7 @@ package domainevents
 import (
 	"encoding/json"
 	"slices"
+	"strconv"
 
 	"github.com/riverqueue/river"
 
@@ -56,6 +57,8 @@ const (
 	ReportDraftRequested = "report.draft_requested"
 	ReportDrafted        = "report.drafted"
 	ReportPublished      = "report.published"
+	ReportQuestionAsked  = "report.question_asked"
+	ReportFollowUpAsked  = "report.follow_up_asked"
 	ReportWithdrawn      = "report.withdrawn"
 	HubLoginRequested    = "hub.login_requested"
 	KeywordRunRequested  = "keywords.run_requested"
@@ -297,6 +300,30 @@ func Subscriptions() []events.Subscription {
 					return nil
 				}
 				return jobargs.ReportPDF{OrgID: s.OrgID, ReportID: p.ReportID, Version: p.Version}
+			},
+		},
+		{
+			// The reader asked the team to look into something the report could not
+			// answer. It becomes a notification, like a published report does.
+			Name:  "notify-report-follow-up",
+			Kinds: []string{ReportFollowUpAsked},
+			Job: func(s events.Stored) river.JobArgs {
+				id, err := strconv.ParseInt(s.SubjectID, 10, 64)
+				if err != nil {
+					return nil
+				}
+				return jobargs.ReportFollowUp{OrgID: s.OrgID, QuestionID: id}
+			},
+		},
+		{
+			Name:  "answer-report-question",
+			Kinds: []string{ReportQuestionAsked},
+			Job: func(s events.Stored) river.JobArgs {
+				id, err := strconv.ParseInt(s.SubjectID, 10, 64)
+				if err != nil {
+					return nil
+				}
+				return jobargs.ReportAnswer{OrgID: s.OrgID, QuestionID: id}
 			},
 		},
 		{

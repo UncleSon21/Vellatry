@@ -55,6 +55,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /hub/{slug}/logout", hub(s.hubLogout))
 	mux.Handle("GET /hub/{slug}/reports/{id}", hub(s.hubReport))
 	mux.Handle("GET /hub/{slug}/reports/{id}/pdf", hub(s.hubPDF))
+	mux.Handle("POST /hub/{slug}/reports/{id}/ask", hub(s.hubAsk))
+	mux.Handle("POST /hub/{slug}/reports/{id}/follow-up", hub(s.hubFollowUp))
 
 	authed := http.NewServeMux()
 	authed.HandleFunc("GET /v1/me", s.me)
@@ -146,6 +148,7 @@ func (s *Server) Handler() http.Handler {
 	authed.HandleFunc("POST /v1/reports/{id}/publish", s.publishReport)
 	authed.HandleFunc("POST /v1/reports/{id}/withdraw", s.withdrawReport)
 	authed.HandleFunc("GET /v1/reports/{id}/views", s.reportViews)
+	authed.HandleFunc("GET /v1/reports/{id}/questions", s.reportQuestions)
 	authed.HandleFunc("GET /v1/hub", s.getHub)
 	authed.HandleFunc("PATCH /v1/hub", s.patchHub)
 	authed.HandleFunc("POST /v1/hub/rotate", s.rotateHub)

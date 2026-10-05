@@ -18,6 +18,10 @@ func DefaultPurposes() []Purpose {
 		{Name: "agent_narrate", MaxInputChars: 20_000, MaxOutputTokens: 1_500, Tier: "cheap", EstimateUSD: 0.02},
 		{Name: "notebook_answer", MaxInputChars: 60_000, MaxOutputTokens: 2_000, Tier: "strong", EstimateUSD: 0.15},
 		{Name: "report_draft", MaxInputChars: 30_000, MaxOutputTokens: 2_500, Tier: "strong", EstimateUSD: 0.10},
+		// The CMO asking about a report they are reading. One report's text in, a few
+		// sentences out, and every figure checked against that report before anyone
+		// sees it.
+		{Name: "report_question", MaxInputChars: 30_000, MaxOutputTokens: 600, Tier: "cheap", EstimateUSD: 0.02},
 		{Name: "suggest_title_meta", MaxInputChars: 6_000, MaxOutputTokens: 400, Tier: "cheap", EstimateUSD: 0.005},
 	}
 }

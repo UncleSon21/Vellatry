@@ -210,3 +210,65 @@ func TestTokens(t *testing.T) {
 		t.Errorf("slug = %q", slug)
 	}
 }
+
+// The report bot answers from the report and nowhere else, and the panel it answers in
+// never reaches the PDF.
+func TestAskPanelAndAnswerRules(t *testing.T) {
+	s := sample()
+
+	grounded := "Koala appeared in 42.5% of AI answers, up 4.4 pts."
+	invented := "That happened because the new campaign lifted spend 20%."
+	answer, status, dropped := AnswerFromReport(grounded+"\n\n"+invented, s)
+	if status != "answered" || dropped != 1 || answer != grounded {
+		t.Errorf("answer = %q, %s, %d dropped; the invented figure should have gone", answer, status, dropped)
+	}
+	if answer, status, _ = AnswerFromReport(invented, s); status != "unanswerable" || answer != WhenTheReportCannotSay {
+		t.Errorf("an answer with nothing the report backs = %q, %s", answer, status)
+	}
+	if _, status, _ := AnswerFromReport("", s); status != "unanswerable" {
+		t.Errorf("an empty answer = %s", status)
+	}
+	// Prose with no figures in it is not a claim about the data, so it stands.
+	if _, status, _ := AnswerFromReport("The report does not break that down by city.", s); status != "answered" {
+		t.Errorf("an answer with no figures = %s", status)
+	}
+
+	followedUp := time.Now()
+	panel := &AskPanel{Action: "/hub/x/reports/1/ask", FollowUp: "/hub/x/reports/1/follow-up", Error: "Type a question first.",
+		Questions: []Question{
+			{ID: 1, Question: "Why did visibility move?", Answer: grounded, Status: "answered"},
+			{ID: 2, Question: "What is our churn?", Answer: WhenTheReportCannotSay, Status: "unanswerable"},
+			{ID: 3, Question: "And by city?", Status: "asked"},
+			{ID: 4, Question: "Already sent", Answer: WhenTheReportCannotSay, Status: "unanswerable", FollowUp: &followedUp},
+		}}
+	web, err := RenderHTML(View{Snapshot: s, Title: "t", Ask: panel})
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := string(web)
+	for _, want := range []string{"Ask about this report", `action="/hub/x/reports/1/ask"`, "Why did visibility move?", grounded,
+		WhenTheReportCannotSay, "Working on it", "Type a question first.", `value="2"`, "Ask the team to look into this",
+		"Sent to the team"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the panel is missing %q", want)
+		}
+	}
+	// A question still waiting cannot be escalated, and one already sent is not offered again.
+	if strings.Contains(page, `value="3"`) {
+		t.Error("a question still waiting for an answer was offered a follow-up")
+	}
+	if strings.Contains(page, `value="4"`) {
+		t.Error("a follow-up already sent was offered again")
+	}
+
+	print, _ := RenderHTML(View{Snapshot: s, Title: "t", Print: true, Ask: panel})
+	for _, absent := range []string{"Ask about this report", "Why did visibility move?", "<textarea"} {
+		if strings.Contains(string(print), absent) {
+			t.Errorf("the PDF carries %q from the question panel", absent)
+		}
+	}
+	none, _ := RenderHTML(View{Snapshot: s, Title: "t"})
+	if strings.Contains(string(none), "Ask about this report") {
+		t.Error("the panel appeared without one being asked for")
+	}
+}

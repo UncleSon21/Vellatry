@@ -226,6 +226,27 @@ func (ReportPDF) Kind() string { return "report_pdf" }
 // InsertOpts stops retrying a PDF after about an hour; the web view is unaffected.
 func (ReportPDF) InsertOpts() river.InsertOpts { return river.InsertOpts{MaxAttempts: 6} }
 
+// ReportAnswer answers a question a reader asked of a published report, from that
+// report's own snapshot.
+type ReportAnswer struct {
+	OrgID      string `json:"org_id"`
+	QuestionID int64  `json:"question_id"`
+}
+
+func (ReportAnswer) Kind() string { return "report_answer" }
+
+// InsertOpts: a reader is waiting, so a few quick attempts and then an honest failure
+// beats retrying for an hour.
+func (ReportAnswer) InsertOpts() river.InsertOpts { return river.InsertOpts{MaxAttempts: 3} }
+
+// ReportFollowUp tells the team a reader wants a question looked into.
+type ReportFollowUp struct {
+	OrgID      string `json:"org_id"`
+	QuestionID int64  `json:"question_id"`
+}
+
+func (ReportFollowUp) Kind() string { return "report_follow_up" }
+
 // ReportNotify tells the team and the recipients that a version was published.
 type ReportNotify struct {
 	OrgID    string `json:"org_id"`
