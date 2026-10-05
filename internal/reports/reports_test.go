@@ -127,6 +127,13 @@ func TestRenderAbsenceAndEscaping(t *testing.T) {
 	if !strings.Contains(page, "&lt;script&gt;") {
 		t.Error("prompt text was not escaped")
 	}
+	// Words are text columns (left, free to wrap); only figures are set as numbers.
+	if !strings.Contains(page, "<td>best &lt;script&gt;") || !strings.Contains(page, "<td>Recommends Snooze first</td>") {
+		t.Error("a blindspot's question and what happens should be text columns")
+	}
+	if !strings.Contains(page, `<td class="num">42.5%</td>`) {
+		t.Error("a figure should be a number column")
+	}
 
 	team, _ := RenderHTML(View{Snapshot: s, Title: "t", Team: true, Draft: true})
 	for _, want := range []string{"For your team only", "Website traffic: Google Analytics 4 is not connected", "Google Search: Search Console has 29 of 31 days", "Draft."} {

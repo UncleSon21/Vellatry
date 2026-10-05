@@ -36,7 +36,15 @@ type Table struct {
 	Head  []string
 	Rows  [][]string
 	Bold  []bool // rows to emphasise (the brand among competitors)
+	// TextCols is how many leading columns hold words rather than figures (the first
+	// always does). Words wrap and read left to right; figures align right and keep to
+	// one line. Without it a question was set right-aligned and unbroken, and the table
+	// pushed the report off a phone screen.
+	TextCols int
 }
+
+// Numeric reports whether column i holds figures.
+func (t Table) Numeric(i int) bool { return i >= max(t.TextCols, 1) }
 
 // Chart is a daily line.
 type Chart struct {
@@ -228,7 +236,7 @@ func visibilityBlock(s Snapshot) *Block {
 		b.Tables = append(b.Tables, t)
 	}
 	if len(v.Sources) > 0 {
-		t := Table{Title: "Sources the AI engines cited most", Head: []string{"Website", "Type", "Citations"}}
+		t := Table{Title: "Sources the AI engines cited most", Head: []string{"Website", "Type", "Citations"}, TextCols: 2}
 		for _, r := range v.Sources {
 			t.Rows = append(t.Rows, []string{r.Domain, sourceType(r.Type), num(int64(r.Citations))})
 		}
@@ -279,7 +287,7 @@ func blindspotBlock(s Snapshot) *Block {
 		b.Metrics[1].Good = nil
 	}
 	if len(bs.Top) > 0 {
-		t := Table{Title: "Highest-priority open blindspots", Head: []string{"Engine", "Question", "What happens"}}
+		t := Table{Title: "Highest-priority open blindspots", Head: []string{"Engine", "Question", "What happens"}, TextCols: 3}
 		for _, r := range bs.Top {
 			what := "Leaves " + s.Brand + " out"
 			if r.Kind == "displacement" && r.Competitor != nil {
@@ -372,7 +380,7 @@ func siteBlock(s Snapshot) *Block {
 		{Label: "llms.txt", Value: llms},
 	}
 	if len(st.AIAccess) > 0 {
-		t := Table{Title: "AI search crawlers", Head: []string{"Crawler", "Used by", "Access"}}
+		t := Table{Title: "AI search crawlers", Head: []string{"Crawler", "Used by", "Access"}, TextCols: 3}
 		for _, a := range st.AIAccess {
 			access := "Allowed"
 			if a.Blocked {

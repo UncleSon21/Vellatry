@@ -146,10 +146,10 @@ h2{font-size:18px;margin:0 0 4px}
 .intro{color:var(--muted);margin:0 0 16px;font-size:14px}
 .note{border-left:3px solid var(--accent);padding:4px 0 4px 12px;margin:0 0 16px}
 .summary p{margin:0 0 12px}
-.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
 .metric{border:1px solid var(--line);border-radius:8px;padding:12px 14px}
 .metric .label{font-size:13px;color:var(--muted)}
-.metric .value{font-size:24px;font-weight:600;line-height:1.3}
+.metric .value{font-size:24px;font-weight:600;line-height:1.3;font-variant-numeric:tabular-nums}
 .metric .change{font-size:13px}
 .good{color:var(--good)}.bad{color:var(--bad)}.neutral{color:var(--muted)}
 figure{margin:0 0 16px}
@@ -158,7 +158,7 @@ h3{font-size:14px;margin:16px 0 6px}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th{text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--line);padding:6px 8px 6px 0}
 td{border-bottom:1px solid var(--line);padding:6px 8px 6px 0;vertical-align:top;word-break:break-word}
-td.num,th.num{text-align:right;white-space:nowrap}
+td.num,th.num{text-align:right;white-space:nowrap}td.num{font-variant-numeric:tabular-nums}
 tr.bold td{font-weight:600}
 ul.bullets{margin:0;padding-left:18px}
 footer{color:var(--faint);font-size:12px;text-align:center;margin-top:24px}
@@ -184,8 +184,8 @@ footer{color:var(--faint);font-size:12px;text-align:center;margin-top:24px}
 {{if .Note}}<div class="note">{{range paragraphs .Note}}<p style="margin:0 0 8px">{{.}}</p>{{end}}</div>{{end}}
 {{if .Metrics}}<div class="metrics">{{range .Metrics}}<div class="metric"><div class="label">{{.Label}}</div><div class="value">{{.Value}}</div>{{if .Change}}<div class="change {{good .Good}}">{{.Change}}</div>{{end}}</div>{{end}}</div>{{end}}
 {{with .Chart}}<figure>{{chart . $.Accent}}<figcaption>{{.Caption}}</figcaption></figure>{{end}}
-{{range .Tables}}{{if .Title}}<h3>{{.Title}}</h3>{{end}}<table><thead><tr>{{range $i, $h := .Head}}<th{{if $i}} class="num"{{end}}>{{$h}}</th>{{end}}</tr></thead><tbody>
-{{$t := .}}{{range $r, $row := .Rows}}<tr{{if bold $t $r}} class="bold"{{end}}>{{range $i, $c := $row}}<td{{if $i}} class="num"{{end}}>{{$c}}</td>{{end}}</tr>{{end}}</tbody></table>{{end}}
+{{range .Tables}}{{$t := .}}{{if .Title}}<h3>{{.Title}}</h3>{{end}}<table><thead><tr>{{range $i, $h := .Head}}<th{{if $t.Numeric $i}} class="num"{{end}}>{{$h}}</th>{{end}}</tr></thead><tbody>
+{{range $r, $row := .Rows}}<tr{{if bold $t $r}} class="bold"{{end}}>{{range $i, $c := $row}}<td{{if $t.Numeric $i}} class="num"{{end}}>{{$c}}</td>{{end}}</tr>{{end}}</tbody></table>{{end}}
 {{if .Bullets}}<ul class="bullets">{{range .Bullets}}<li>{{.}}</li>{{end}}</ul>{{end}}
 </section>{{end}}
 <footer>Figures from {{.Sources}}. Prepared with Vellatry.</footer>
