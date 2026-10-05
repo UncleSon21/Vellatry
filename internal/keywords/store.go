@@ -536,3 +536,61 @@ func SetStatus(ctx context.Context, tx pgx.Tx, keyword, status, reason string) e
 
 // ErrNoKeyword is returned when a keyword is not in the set.
 var ErrNoKeyword = errors.New("keywords: not found")
+
+// Merged is what a merge moved.
+type Merged struct {
+	Keywords int
+	Prompts  int
+	Rejected int // questions the kept topic already asks in the same words
+}
+
+// MergeTopics folds one topic into another: a proposal that turned out to be a topic the
+// team already tracks. The keywords and questions move, the duplicate is retired and
+// records where it went, and nothing is deleted.
+//
+// A question the kept topic already asks in the same words cannot move (one wording per
+// tenant), so it is rejected instead of deleted: its answers and their history belong to
+// the tenant, and deleting the question would take them with it.
+//
+// tx must be scoped to the org.
+func MergeTopics(ctx context.Context, tx pgx.Tx, dupeID, keepID string) (Merged, error) {
+	var m Merged
+	tag, err := tx.Exec(ctx, `UPDATE keywords SET topic_id = $2::uuid, updated_at = now() WHERE topic_id = $1::uuid`, dupeID, keepID)
+	if err != nil {
+		return m, err
+	}
+	m.Keywords = int(tag.RowsAffected())
+
+	if tag, err = tx.Exec(ctx, `
+		UPDATE prompts p SET topic_id = $2::uuid, updated_at = now()
+		WHERE p.topic_id = $1::uuid
+		  AND NOT EXISTS (SELECT 1 FROM prompts k WHERE k.topic_id = $2::uuid AND lower(k.text) = lower(p.text))`,
+		dupeID, keepID); err != nil {
+		return m, err
+	}
+	m.Prompts = int(tag.RowsAffected())
+
+	if tag, err = tx.Exec(ctx, `UPDATE prompts SET status = 'rejected', updated_at = now()
+		WHERE topic_id = $1::uuid AND status <> 'rejected'`, dupeID); err != nil {
+		return m, err
+	}
+	m.Rejected = int(tag.RowsAffected())
+
+	// The duplicate is retired and says where it went. Its own suggestion is cleared:
+	// it has been acted on.
+	if _, err = tx.Exec(ctx, `UPDATE topics
+		SET status = 'out_of_scope', merged_into = $2::uuid, similar_to = NULL, similar_score = NULL, updated_at = now()
+		WHERE id = $1::uuid`, dupeID, keepID); err != nil {
+		return m, err
+	}
+	// Anything else that looked like the duplicate is now looking at a retired topic;
+	// the next embedding run decides again against what is actually tracked.
+	if _, err = tx.Exec(ctx, `UPDATE topics SET similar_to = NULL, similar_score = NULL, similar_checked_at = NULL
+		WHERE similar_to = $1::uuid`, dupeID); err != nil {
+		return m, err
+	}
+	// The kept topic now owns the duplicate's keywords.
+	_, err = tx.Exec(ctx, `UPDATE topics t SET keyword_count = (SELECT count(*) FROM keywords k WHERE k.topic_id = t.id), updated_at = now()
+		WHERE t.id = $1::uuid`, keepID)
+	return m, err
+}

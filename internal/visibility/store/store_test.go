@@ -226,3 +226,53 @@ func TestEngineLifecycle(t *testing.T) {
 		return err
 	})
 }
+
+// A topic the team ruled out or merged away stops costing money: its questions are no
+// longer due, however they were left. A question with no topic is someone's own and
+// keeps running.
+func TestRetiredTopicsStopBeingMeasured(t *testing.T) {
+	pool := testdb.Pool(t)
+	org, brandID := testdb.NewOrg(t, pool, "Retired")
+
+	var topicID string
+	inTenant(t, pool, org, func(ctx context.Context, tx pgx.Tx) error {
+		if err := tx.QueryRow(ctx, `INSERT INTO topics (org_id, brand_id, name, status) VALUES ($1, $2, 'mattress', 'active') RETURNING id::text`,
+			org, brandID).Scan(&topicID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO prompts (org_id, brand_id, topic_id, text, source, status)
+			VALUES ($1, $2, $3, 'which mattress lasts longest', 'template', 'tracked')`, org, brandID, topicID); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO prompts (org_id, brand_id, text, source, status)
+			VALUES ($1, $2, 'a question of our own', 'manual', 'tracked')`, org, brandID)
+		return err
+	})
+
+	due := func() int {
+		t.Helper()
+		var n int
+		inTenant(t, pool, org, func(ctx context.Context, tx pgx.Tx) error {
+			s, err := store.LoadSettings(ctx, tx)
+			if err != nil {
+				return err
+			}
+			in, err := store.LoadPlanInput(ctx, tx, s)
+			n = len(in.Due)
+			return err
+		})
+		return n
+	}
+
+	if got := due(); got != 2 {
+		t.Fatalf("%d questions due while the topic is tracked, want 2", got)
+	}
+
+	inTenant(t, pool, org, func(ctx context.Context, tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE topics SET status = 'out_of_scope' WHERE id = $1`, topicID)
+		return err
+	})
+	if got := due(); got != 1 {
+		t.Errorf("%d questions due after the topic was retired, want 1: a retired topic must stop being paid for", got)
+	}
+}

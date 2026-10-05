@@ -76,6 +76,7 @@ func (s *Server) Handler() http.Handler {
 	authed.HandleFunc("GET /v1/topics/{id}", s.getTopic)
 	authed.HandleFunc("POST /v1/topics", s.addTopic)
 	authed.HandleFunc("PATCH /v1/topics/{id}", s.patchTopic)
+	authed.HandleFunc("POST /v1/topics/{id}/merge", s.mergeTopic)
 
 	authed.HandleFunc("GET /v1/prompts", s.listPrompts)
 	authed.HandleFunc("POST /v1/prompts", s.addPrompt)

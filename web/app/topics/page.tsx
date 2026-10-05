@@ -68,6 +68,19 @@ export default function TopicsPage() {
     }
   }
 
+  // Folds a proposal into the topic it duplicates: its keywords and questions move
+  // there, and this one is retired with a record of where it went.
+  const merge = async (t: Topic) => {
+    if (!t.similar_to || !window.confirm(`Merge “${t.name}” into “${t.similar_name}”? Its keywords and questions move across.`)) return
+    setError(null)
+    try {
+      await api(`/v1/topics/${t.id}/merge`, { method: 'POST', body: JSON.stringify({ into: t.similar_to }) })
+      topics.reload()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
   const latest = runs.data?.[0]
   const working = latest && (latest.status === 'collecting' || latest.status === 'clustering')
 
@@ -132,10 +145,10 @@ export default function TopicsPage() {
                 {t.intent ? ` · ${t.intent}` : ''}
                 {t.prompts ? ` · ${num(t.prompts)} questions tracked` : ''}
               </div>
-              {t.similar_name && (
+              {t.similar_name && t.status === 'proposed' && (
                 <div style={{ fontSize: 13, marginTop: 4 }}>
                   <Pill tone="warn">looks like “{t.similar_name}”</Pill>{' '}
-                  <span className="muted">which you already track. Skip this one unless it is genuinely different.</span>
+                  <span className="muted">which you already track. Merge it unless it is genuinely different.</span>
                 </div>
               )}
             </span>,
@@ -162,6 +175,7 @@ export default function TopicsPage() {
                   <button className="primary" onClick={() => decide(t.id, 'active')}>
                     Approve
                   </button>
+                  {t.similar_to && <button onClick={() => merge(t)}>Merge</button>}
                   <button onClick={() => decide(t.id, 'out_of_scope')}>Not ours</button>
                 </>
               )}

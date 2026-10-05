@@ -78,8 +78,9 @@ blindspot into a fix whose outcome is measured.
   (BAAI/bge-small-en-v1.5, MIT) behind a small private service, so the worker can tell
   when two topics mean the same thing. After keyword research or a new topic, the
   worker embeds what changed and marks a proposed topic that looks like one the team
-  already tracks; the Topics page says so beside it, and approving or skipping stays
-  with the team. Inference only: nothing learns from customer data, and a similarity is
+  already tracks; the Topics page says so beside it and offers to merge the two, which
+  moves the keywords and questions across and retires the duplicate with a record of
+  where it went. Approving, merging or skipping stays with the team. Inference only: nothing learns from customer data, and a similarity is
   a suggestion, never a number in a report. The threshold was measured, not guessed
   (`embed.SameTopic`).
 - **A dead account stops the queue, once:** if Vellatry's own DataForSEO or model

@@ -76,10 +76,13 @@ func LoadPlanInput(ctx context.Context, tx pgx.Tx, s Settings) (engine.PlanInput
 		return in, err
 	}
 
+	// Only questions the team still wants measured: a topic they ruled out or merged
+	// away stops costing money. A question with no topic is someone's own and stays.
 	rows, err = tx.Query(ctx, `
 		SELECT p.id::text, coalesce(max(c.round), 0) + 1
 		FROM prompts p LEFT JOIN cells c ON c.prompt_id = p.id
-		WHERE p.status = 'tracked'
+		     LEFT JOIN topics t ON t.id = p.topic_id
+		WHERE p.status = 'tracked' AND (t.id IS NULL OR t.status = 'active')
 		GROUP BY p.id
 		HAVING count(c.prompt_id) = 0
 		    OR (bool_and(c.phase = 'settled') AND max(c.round_started_at) < now() - interval '7 days')

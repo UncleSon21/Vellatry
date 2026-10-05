@@ -19,6 +19,7 @@ const (
 	BrandUpdated           = "brand.updated"
 	PromptStatusChanged    = "prompt.status_changed"
 	TopicAdded             = "topic.added"
+	TopicMerged            = "topic.merged"
 	AnswerCollected        = "visibility.answer.collected"
 	AnswerJudged           = "visibility.answer.judged"
 	BlindspotOpened        = "visibility.blindspot.opened"
@@ -177,7 +178,7 @@ func Subscriptions() []events.Subscription {
 			// like one the team already tracks. Does nothing without an embedding
 			// service, and never decides anything on its own.
 			Name:  "embed-topics",
-			Kinds: []string{KeywordRunCompleted, TopicAdded},
+			Kinds: []string{KeywordRunCompleted, TopicAdded, TopicMerged},
 			Job:   func(s events.Stored) river.JobArgs { return jobargs.TopicEmbed{OrgID: s.OrgID} },
 		},
 		{

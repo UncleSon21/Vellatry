@@ -16,6 +16,7 @@ import (
 	"github.com/UncleSon21/vellatry/internal/automation"
 	"github.com/UncleSon21/vellatry/internal/brand"
 	"github.com/UncleSon21/vellatry/internal/domainevents"
+	"github.com/UncleSon21/vellatry/internal/keywords"
 	"github.com/UncleSon21/vellatry/internal/platform/db"
 	"github.com/UncleSon21/vellatry/internal/platform/events"
 )
@@ -400,6 +401,69 @@ func insertTopic(ctx context.Context, tx pgx.Tx, orgID, brandID string, in topic
 	}
 	t.Prompts, err = insertPrompts(ctx, tx, orgID, brandID, t.ID, t.Name, location)
 	return t, err
+}
+
+// mergeTopic folds a topic into one the team already tracks. It is the action behind
+// "looks like a topic you already track": the keywords and questions move, and the
+// duplicate is retired with a record of where it went.
+func (s *Server) mergeTopic(w http.ResponseWriter, r *http.Request) {
+	if err := canEdit(r); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	var in struct {
+		Into string `json:"into"`
+	}
+	if err := decode(r, &in); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	id := r.PathValue("id")
+	if !validUUID(id) {
+		s.fail(w, r, notFound("Topic not found."))
+		return
+	}
+	if !validUUID(in.Into) {
+		s.fail(w, r, badRequest("Choose the topic to merge this one into."))
+		return
+	}
+	if id == in.Into {
+		s.fail(w, r, badRequest("A topic cannot be merged into itself."))
+		return
+	}
+	var merged keywords.Merged
+	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
+		var keepStatus string
+		err := tx.QueryRow(ctx, `SELECT status FROM topics WHERE id = $1 FOR UPDATE`, in.Into).Scan(&keepStatus)
+		if isNoRows(err) {
+			return notFound("The topic to merge into was not found.")
+		}
+		if err != nil {
+			return err
+		}
+		if keepStatus == "out_of_scope" {
+			return badRequest("That topic is out of scope, so merging into it would retire both.")
+		}
+		var dupeStatus string
+		err = tx.QueryRow(ctx, `SELECT status FROM topics WHERE id = $1 FOR UPDATE`, id).Scan(&dupeStatus)
+		if isNoRows(err) {
+			return notFound("Topic not found.")
+		}
+		if err != nil {
+			return err
+		}
+		if merged, err = keywords.MergeTopics(ctx, tx, id, in.Into); err != nil {
+			return err
+		}
+		_, err = s.Bus.Emit(ctx, tx, sessionFrom(ctx).OrgID, events.Event{Kind: domainevents.TopicMerged, SubjectID: id,
+			Actor: sessionFrom(ctx).UserID, Payload: map[string]any{"into": in.Into, "keywords": merged.Keywords}})
+		return err
+	})
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, merged)
 }
 
 func (s *Server) patchTopic(w http.ResponseWriter, r *http.Request) {
