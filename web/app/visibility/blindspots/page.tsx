@@ -67,6 +67,7 @@ export default function BlindspotsPage() {
         <Table
           of={list}
           head={['Question', 'Engine', 'What happens', 'Priority', 'Seen', '']}
+          num={[3]}
           empty={
             status === 'open' ? (
               <Empty label="None open">

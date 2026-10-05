@@ -95,7 +95,9 @@ td { border-bottom: 1px solid var(--line); padding: 8px 10px 8px 0; vertical-ali
 th:last-child, td:last-child { padding-right: 0; }
 /* Right-aligned, but free to wrap: these columns also hold text ("Competitor A
    recommended instead"), and a nowrap there widened the page on phones. */
-td.num, th.num { text-align: right; }
+/* Figures: right, in tabular figures, never wrapped, so a column scans. Words are the
+   default (see Table in components/ui.tsx). */
+td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 td.num { font-variant-numeric: tabular-nums; }
 tr.dim td { color: var(--muted); }
 

@@ -95,16 +95,22 @@ export function Pill({ tone, children }: { tone?: 'good' | 'bad' | 'warn'; child
 
 // `empty` is a sentence, or an <Empty> when there is more to say. Pass `of` so the table
 // shows loading or the error until its data is in, instead of its empty state.
-export function Table({ head, rows, empty, of }: { head: string[]; rows: ReactNode[][]; empty?: ReactNode; of?: Source }) {
+// Table takes words as the default and figures where you say so (num, by column
+// index). Figures sit right, in tabular figures, and never wrap, so a column scans;
+// words sit left and wrap, so a question is readable. A column with no heading holds
+// controls and goes right with the figures.
+export function Table({ head, rows, empty, of, num }: { head: string[]; rows: ReactNode[][]; empty?: ReactNode; of?: Source; num?: number[] }) {
   if (of && of.data === null) return <Unloaded of={of} />
   if (rows.length === 0) return typeof empty === 'string' || empty == null ? <Empty>{empty ?? 'Nothing here yet.'}</Empty> : <>{empty}</>
+  const figures = new Set(num ?? [])
+  const right = (i: number) => figures.has(i) || head[i] === ''
   return (
     <div className="tablewrap">
       <table>
         <thead>
           <tr>
             {head.map((h, i) => (
-              <th key={h} className={i > 0 ? 'num' : undefined}>
+              <th key={h} className={right(i) ? 'num' : undefined}>
                 {h}
               </th>
             ))}
@@ -114,7 +120,7 @@ export function Table({ head, rows, empty, of }: { head: string[]; rows: ReactNo
           {rows.map((row, i) => (
             <tr key={i}>
               {row.map((cell, j) => (
-                <td key={j} className={j > 0 ? 'num' : undefined}>
+                <td key={j} className={right(j) ? 'num' : undefined}>
                   {cell}
                 </td>
               ))}

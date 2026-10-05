@@ -37,6 +37,7 @@ export default function SourcesPage() {
         <Table
           of={list}
           head={['Website', 'Type', 'Citations']}
+          num={[2]}
           empty={
             <Empty label="No citations in this period">
               A website appears here when an engine cites it in an answer to one of your topics&apos; questions.

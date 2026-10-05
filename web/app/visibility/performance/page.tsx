@@ -74,6 +74,7 @@ export default function PerformancePage() {
           of={cur}
           empty={noAnswers ?? 'No engine answered in this period.'}
           head={['Engine', 'Visibility', 'Change', 'Share of voice', 'Answers']}
+          num={[1, 2, 3, 4]}
           rows={(cur.data?.by_engine ?? []).map((m) => [
             engineName(m.engine),
             pct(m.visibility),
@@ -89,6 +90,7 @@ export default function PerformancePage() {
           of={cur}
           empty={noAnswers ?? 'Neither you nor a competitor you track was mentioned in this period.'}
           head={['Brand', 'Visibility', 'Share of voice', 'Answers mentioning']}
+          num={[1, 2, 3]}
           rows={(cur.data?.entities ?? []).map((e) => [
             e.is_brand ? <strong key="n">{e.name} (you)</strong> : e.name,
             pct(e.visibility),

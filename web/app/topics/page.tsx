@@ -104,6 +104,7 @@ export default function TopicsPage() {
         <Table
           of={topics}
           head={['Topic', 'Searches a month', 'Clicks to win', 'Page', 'Issues', '']}
+          num={[1, 2]}
           empty={
             status !== 'proposed' ? (
               status === 'active' ? 'No active topics. Approve a proposed topic and Vellatry starts measuring it.' : 'Nothing marked out of scope.'

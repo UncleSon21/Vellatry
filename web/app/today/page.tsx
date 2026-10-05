@@ -99,6 +99,7 @@ export default function Overview() {
           <Table
             of={spots}
             head={['Question', 'Engine', 'What happens', 'Priority']}
+            num={[3]}
             empty={noBlindspots}
             rows={confirmed.slice(0, 5).map((s) => [
               s.prompt,

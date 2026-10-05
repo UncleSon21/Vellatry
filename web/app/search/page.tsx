@@ -60,6 +60,7 @@ export default function SearchPage() {
         <Table
           of={referrals}
           head={['Assistant', 'Sessions', 'Users', 'Key events']}
+          num={[1, 2, 3]}
           empty={
             <Empty label="None in this period" action={<Link className="btn" href="/settings/connections">Connections</Link>}>
               Google Analytics 4 recorded no sessions from an AI assistant. If you expected some, check that Analytics is connected.
@@ -73,6 +74,7 @@ export default function SearchPage() {
         <Table
           of={queries}
           head={['Search', 'Clicks', 'Impressions', 'CTR', 'Position']}
+          num={[1, 2, 3, 4]}
           empty={<Empty label="Nothing recorded this month">Searches appear here as Search Console reports them.</Empty>}
           rows={(queries.data ?? []).map((q) => [q.key, num(q.clicks), num(q.impressions), pct(q.ctr), dec(q.position)])}
         />
@@ -82,6 +84,7 @@ export default function SearchPage() {
         <Table
           of={pages}
           head={['Page', 'Clicks', 'Impressions', 'CTR', 'Position']}
+          num={[1, 2, 3, 4]}
           empty={<Empty label="Nothing recorded this month">Pages appear here as Search Console reports clicks on them.</Empty>}
           rows={(pages.data ?? []).map((p) => [p.key, num(p.clicks), num(p.impressions), pct(p.ctr), dec(p.position)])}
         />
