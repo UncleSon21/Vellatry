@@ -4,6 +4,7 @@ package claude
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,7 +12,31 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/option"
 
 	"github.com/UncleSon21/vellatry/internal/platform/gateway"
+	"github.com/UncleSon21/vellatry/internal/platform/halt"
 )
+
+// accountFatal reports whether an error means Vellatry's Anthropic account cannot be
+// used at all, rather than this one call failing. Rate limits and overloads are not
+// fatal: they are worth retrying.
+func accountFatal(err error) (reason string, fatal bool) {
+	var api *sdk.Error
+	if errors.As(err, &api) {
+		switch api.StatusCode {
+		case 401:
+			return "the API key was rejected", true
+		case 403:
+			return "the API key is not allowed to use this", true
+		case 402:
+			return "the account has no credit", true
+		}
+	}
+	// Anthropic reports an empty account as an ordinary bad request, so the message is
+	// the only signal.
+	if strings.Contains(strings.ToLower(err.Error()), "credit balance") {
+		return "the account has no credit", true
+	}
+	return "", false
+}
 
 // Price is USD per million tokens.
 type Price struct {
@@ -86,6 +111,11 @@ func (p *Provider) Complete(ctx context.Context, model string, maxOutputTokens i
 
 	msg, err := p.client.Beta.Messages.New(ctx, params)
 	if err != nil {
+		if reason, fatal := accountFatal(err); fatal {
+			// Vellatry's own account, so every other job would fail the same way: the
+			// worker halts rather than discovering it a few hundred more times.
+			return gateway.Response{}, halt.Account("anthropic", reason, err)
+		}
 		return gateway.Response{}, fmt.Errorf("claude: %w", err)
 	}
 	switch msg.StopReason {

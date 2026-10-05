@@ -14,6 +14,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/option"
 
 	"github.com/UncleSon21/vellatry/internal/platform/gateway"
+	"github.com/UncleSon21/vellatry/internal/platform/halt"
 )
 
 func fakeAPI(t *testing.T, stopReason string, capture *map[string]any, header *http.Header) *Provider {
@@ -107,5 +108,51 @@ func TestUnpricedModelRefused(t *testing.T) {
 	p := New("k", map[string]Price{})
 	if _, err := p.Complete(context.Background(), "claude-mystery", 10, gateway.Request{}); err == nil {
 		t.Error("a model without a price must be refused, not metered at zero")
+	}
+}
+
+// A dead Anthropic account is Vellatry's own problem, and every other call would fail
+// the same way, so it halts the worker instead of being retried a few hundred times.
+func TestDeadAccountIsFatal(t *testing.T) {
+	cases := map[string]struct {
+		status int
+		body   string
+	}{
+		"rejected key": {http.StatusUnauthorized, `{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}`},
+		"no credit":    {http.StatusBadRequest, `{"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API."}}`},
+	}
+	for name, c := range cases {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(c.status)
+			_, _ = w.Write([]byte(c.body))
+		}))
+		p := New("test-key", nil, option.WithBaseURL(srv.URL), option.WithMaxRetries(0))
+		_, err := p.Complete(context.Background(), "claude-haiku-4-5", 100, gateway.Request{Messages: []gateway.Message{{Role: "user", Content: "hello"}}})
+		f, ok := halt.IsFatal(err)
+		if !ok {
+			t.Errorf("%s: should halt the worker, got %v", name, err)
+		} else if f.Service != "anthropic" {
+			t.Errorf("%s: service = %q", name, f.Service)
+		}
+		srv.Close()
+	}
+}
+
+// An overloaded API is weather: it must not stop the queue.
+func TestOverloadedIsNotFatal(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}`))
+	}))
+	defer srv.Close()
+	p := New("test-key", nil, option.WithBaseURL(srv.URL), option.WithMaxRetries(0))
+	_, err := p.Complete(context.Background(), "claude-haiku-4-5", 100, gateway.Request{Messages: []gateway.Message{{Role: "user", Content: "hello"}}})
+	if err == nil {
+		t.Fatal("the call should fail")
+	}
+	if _, ok := halt.IsFatal(err); ok {
+		t.Error("an overloaded API halted the worker")
 	}
 }

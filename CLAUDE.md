@@ -36,7 +36,11 @@ Key decisions in short form: `docs/decisions.md`.
 - **Idempotent jobs.** Any job may run twice. Use upserts or partition replacement.
 - **Versioned methods.** Every stored score records the method/model version.
 - **Errors.** Transient (429, 5xx, timeouts, connection resets) retry. Permanent
-  (billing, auth, 40x, parse failures) fail visibly; billing/auth trips a global halt.
+  (billing, auth, 40x, parse failures) fail visibly. A dead account of *ours*
+  (DataForSEO, the model gateway) halts the worker: the client wraps it with
+  `halt.Account`, the job middleware records it once and snoozes everything after.
+  Jobs are kept, not failed, and `vellatry resume` releases them once the account is
+  fixed. A customer's own broken connection is theirs alone and never halts anything.
 - **Absence rule.** Dashboard shows missing or broken connections with a fix action.
   The exported CMO report omits missing sections. No data means no report.
   (`reports.Build` records why a section is missing in `Snapshot.Omitted`, which only

@@ -39,6 +39,7 @@ import (
 	"github.com/UncleSon21/vellatry/internal/platform/gateway"
 	"github.com/UncleSon21/vellatry/internal/platform/gateway/claude"
 	"github.com/UncleSon21/vellatry/internal/platform/gateway/pgcache"
+	"github.com/UncleSon21/vellatry/internal/platform/halt"
 	"github.com/UncleSon21/vellatry/internal/platform/jobs"
 	"github.com/UncleSon21/vellatry/internal/platform/metering"
 	"github.com/UncleSon21/vellatry/internal/platform/secrets"
@@ -51,7 +52,7 @@ import (
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, "usage: vellatry migrate|api|worker")
+		fmt.Fprintln(os.Stderr, "usage: vellatry migrate|api|worker|status|resume")
 		os.Exit(2)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -84,8 +85,43 @@ func run(ctx context.Context, role string, log *slog.Logger) error {
 		return runAPI(ctx, cfg, pool, log)
 	case "worker":
 		return runWorker(ctx, cfg, pool, log)
+	case "status":
+		return showStatus(ctx, pool, log)
+	case "resume":
+		return resume(ctx, pool, log)
 	}
-	return fmt.Errorf("unknown role %q (want migrate, api or worker)", role)
+	return fmt.Errorf("unknown role %q (want migrate, api, worker, status or resume)", role)
+}
+
+// showStatus says whether the worker is halted, and why.
+func showStatus(ctx context.Context, pool *pgxpool.Pool, log *slog.Logger) error {
+	s, err := halt.Current(ctx, pool)
+	if err != nil {
+		return err
+	}
+	if !s.Halted {
+		log.Info("worker running")
+		return nil
+	}
+	log.Warn("worker halted", "service", s.Service, "reason", s.Reason, "since", s.Since.Format(time.RFC3339),
+		"resume_with", "vellatry resume")
+	return nil
+}
+
+// resume lets the worker pick up where it stopped. Clearing a halt is manual on
+// purpose: the account has to be fixed first, and an automatic retry would only
+// rediscover that it is not.
+func resume(ctx context.Context, pool *pgxpool.Pool, log *slog.Logger) error {
+	was, err := halt.Clear(ctx, pool)
+	if err != nil {
+		return err
+	}
+	if !was.Halted {
+		log.Info("worker was not halted; nothing to do")
+		return nil
+	}
+	log.Info("worker resumed", "was_halted_since", was.Since.Format(time.RFC3339), "service", was.Service, "reason", was.Reason)
+	return nil
 }
 
 func runAPI(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) error {

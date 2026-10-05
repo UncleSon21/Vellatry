@@ -82,6 +82,10 @@ blindspot into a fix whose outcome is measured.
   with the team. Inference only: nothing learns from customer data, and a similarity is
   a suggestion, never a number in a report. The threshold was measured, not guessed
   (`embed.SameTopic`).
+- **A dead account stops the queue, once:** if Vellatry's own DataForSEO or model
+  account is out of credit or its key is rejected, the first job to prove it halts the
+  worker instead of several hundred jobs each burning their retries on the same fact.
+  Queued work is kept; `vellatry status` says why, `vellatry resume` releases it.
 - **Design:** "paper and highlighter": Archivo throughout, warm paper, lime for your
   mentions and coral for a competitor's. The landing page shows the product itself in a
   self-playing tour (Today, a blindspot, Test my setup, Fixes) and plays a live check in

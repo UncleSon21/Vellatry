@@ -12,9 +12,11 @@ import (
 	"io"
 	"math/rand/v2"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/UncleSon21/vellatry/internal/platform/budget"
+	"github.com/UncleSon21/vellatry/internal/platform/halt"
 )
 
 // DefaultBaseURL is the production API host.
@@ -178,21 +180,56 @@ func (c *Client) once(ctx context.Context, method, path string, payload []byte) 
 		return nil, &APIError{HTTPStatus: resp.StatusCode, Message: snippet(raw), Transient: true}
 	}
 	if resp.StatusCode >= 400 {
-		return nil, &APIError{HTTPStatus: resp.StatusCode, Message: snippet(raw)}
+		e := &APIError{HTTPStatus: resp.StatusCode, Message: snippet(raw)}
+		if reason, fatal := accountFatal(resp.StatusCode, e.Message); fatal {
+			return nil, halt.Account("dataforseo", reason, e)
+		}
+		return nil, e
 	}
 	var env envelope
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return nil, &APIError{HTTPStatus: resp.StatusCode, Message: "decode: " + err.Error()}
 	}
 	if env.StatusCode != 20000 {
-		return nil, &APIError{
+		e := &APIError{
 			HTTPStatus: resp.StatusCode,
 			StatusCode: env.StatusCode,
 			Message:    env.StatusMessage,
 			Transient:  env.StatusCode >= 50000,
 		}
+		// DataForSEO answers 200 with the real outcome in the envelope, so an empty
+		// account arrives here rather than as an HTTP status.
+		if reason, fatal := accountFatal(resp.StatusCode, e.Message); fatal {
+			return nil, halt.Account("dataforseo", reason, e)
+		}
+		return nil, e
 	}
 	return &env, nil
+}
+
+// accountFatal reports whether a failure means Vellatry's DataForSEO account cannot be
+// used at all, rather than this one call failing. It is deliberately narrow: a bad
+// request or a missing task is this call's problem, and halting on it would stop the
+// whole queue over one malformed request.
+func accountFatal(httpStatus int, message string) (reason string, fatal bool) {
+	switch httpStatus {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return "the credentials were rejected", true
+	case http.StatusPaymentRequired:
+		return "the account is out of credit", true
+	}
+	m := strings.ToLower(message)
+	for _, phrase := range []string{"insufficient funds", "not enough money", "payment required", "no money", "balance"} {
+		if strings.Contains(m, phrase) {
+			return "the account is out of credit", true
+		}
+	}
+	for _, phrase := range []string{"unauthorized", "invalid credentials", "access denied", "authentication"} {
+		if strings.Contains(m, phrase) {
+			return "the credentials were rejected", true
+		}
+	}
+	return "", false
 }
 
 func backoff(attempt int) time.Duration {

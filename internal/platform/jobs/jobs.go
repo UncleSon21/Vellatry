@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivertype"
 )
 
 // Client is the queue client used across Vellatry.
@@ -39,6 +40,10 @@ func NewWorker(pool *pgxpool.Pool, workers *river.Workers, o Options) (*Client, 
 	if o.MaxAttempts <= 0 {
 		o.MaxAttempts = 8
 	}
+	logger := o.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Queues:       map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: o.MaxWorkers}},
 		Workers:      workers,
@@ -46,6 +51,8 @@ func NewWorker(pool *pgxpool.Pool, workers *river.Workers, o Options) (*Client, 
 		MaxAttempts:  o.MaxAttempts,
 		PeriodicJobs: o.PeriodicJobs,
 		Logger:       o.Logger,
+		// Nothing runs while one of Vellatry's own paid accounts is unusable: see halt.go.
+		Middleware: []rivertype.Middleware{haltMiddleware(pool, logger)},
 	})
 }
 
