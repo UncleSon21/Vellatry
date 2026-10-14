@@ -1,5 +1,7 @@
 # Vellatry
 
+[![ci](https://github.com/UncleSon21/Vellatry/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/UncleSon21/Vellatry/actions/workflows/ci.yml?query=branch%3Amain)
+
 Find your AI blindspots, fix them, prove it to your CMO.
 
 Vellatry shows Australian in-house marketing teams where ChatGPT, Gemini and Google
@@ -169,9 +171,21 @@ go run ./cmd/vellatry worker
 ```bash
 export VELLATRY_TEST_DATABASE_URL=postgres://vellatry_app:vellatry@localhost:5433/vellatry_test
 go test ./...
+go run honnef.co/go/tools/cmd/staticcheck@v0.8.1 ./...
 ```
 
 Without `VELLATRY_TEST_DATABASE_URL` the database tests are skipped.
+
+The dashboard has its own unit tests (Vitest) and lint (ESLint with Next's rules):
+
+```bash
+cd web
+npm test
+npm run lint
+```
+
+CI runs all of these, plus `gofmt`, `go vet`, `tsc` and a production build, on every
+push and pull request (`.github/workflows/ci.yml`).
 
 ## Deploy
 
