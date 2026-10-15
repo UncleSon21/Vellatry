@@ -17,6 +17,7 @@ import (
 	"github.com/UncleSon21/vellatry/internal/dataforseo"
 	"github.com/UncleSon21/vellatry/internal/domainevents"
 	"github.com/UncleSon21/vellatry/internal/jobargs"
+	"github.com/UncleSon21/vellatry/internal/platform/budget"
 	"github.com/UncleSon21/vellatry/internal/platform/db"
 	"github.com/UncleSon21/vellatry/internal/platform/events"
 	"github.com/UncleSon21/vellatry/internal/platform/jobs"
@@ -330,4 +331,51 @@ func TestPlanWhenDataForSEOFails(t *testing.T) {
 			t.Errorf("after every task was refused: %v, want 6 failed", states)
 		}
 	})
+}
+
+// TestPlanStopsCleanlyWhenOurBudgetRunsOut: when Vellatry's own DataForSEO budget refuses
+// a post, planning stops for the day without retrying. Every task it did not post must
+// stop counting as in flight, or the planner, which subtracts in-flight tasks from what a
+// question still needs, never asks it again.
+func TestPlanStopsCleanlyWhenOurBudgetRunsOut(t *testing.T) {
+	pool := testdb.Pool(t)
+	ctx := context.Background()
+	org := screeningOrg(t, pool, "plan-budget")
+	inserter, err := jobs.NewInserter(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bus := events.NewBus(inserter, domainevents.Subscriptions()...)
+	src := &scriptedEngines{refuse: func([]dataforseo.Request) ([]dataforseo.Posted, error) {
+		return nil, fmt.Errorf("dataforseo: %w", budget.ErrExceeded)
+	}}
+	w := &planOrgWorker{v: &Visibility{Pool: pool, Answers: src, Bus: bus, Logger: slog.Default()}}
+
+	if err := w.Work(ctx, job(jobargs.VisibilityPlanOrg{OrgID: org})); err != nil {
+		t.Fatalf("an exhausted budget returned %v, want the plan to finish", err)
+	}
+	if n := len(src.batches()); n != 1 {
+		t.Errorf("%d batches posted after the budget refused the first, want 1", n)
+	}
+	if states, pending := taskStates(t, pool, org); len(pending) != 0 {
+		t.Errorf("tasks left pending, never posted, on %v (all tasks: %v): those engines are never asked this question again", pending, states)
+	}
+
+	// The next plan asks every engine. (DataForSEO refuses it for an ordinary reason, so
+	// every batch is attempted and the test sees which engines were planned.)
+	src.mu.Lock()
+	src.refuse = func([]dataforseo.Request) ([]dataforseo.Posted, error) {
+		return nil, &dataforseo.APIError{HTTPStatus: 200, StatusCode: 40501, Message: "invalid field"}
+	}
+	src.mu.Unlock()
+	if err := w.Work(ctx, job(jobargs.VisibilityPlanOrg{OrgID: org})); err != nil {
+		t.Fatal(err)
+	}
+	asked := map[dataforseo.Engine]bool{}
+	for _, e := range src.batches()[1:] {
+		asked[e] = true
+	}
+	if len(asked) != 3 {
+		t.Errorf("the next plan asked %d engines, want all 3", len(asked))
+	}
 }

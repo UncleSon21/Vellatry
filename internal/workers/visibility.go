@@ -152,6 +152,7 @@ func (v *Visibility) post(ctx context.Context, org string, s store.Settings, tas
 	for _, t := range tasks {
 		byEngine[t.Engine] = append(byEngine[t.Engine], t)
 	}
+	done := map[int64]bool{}
 	for eng, list := range byEngine {
 		for i := 0; i < len(list); i += 100 {
 			batch := list[i:min(i+100, len(list))]
@@ -160,13 +161,26 @@ func (v *Visibility) post(ctx context.Context, org string, s store.Settings, tas
 				reqs[k] = request(t, eng, s)
 			}
 			posted, err := v.Answers.PostTasks(ctx, reqs)
+			if errors.Is(err, budget.ErrExceeded) {
+				// Our account's daily cap: stop posting, nothing to retry today. Every task not
+				// posted yet fails with this batch, on every engine: one left pending counts as
+				// in flight, and the planner would never ask its question again.
+				var rest []store.Task
+				for _, t := range tasks {
+					if !done[t.ID] {
+						rest = append(rest, t)
+					}
+				}
+				v.Logger.WarnContext(ctx, "post refused by our budget", "org_id", org, "engine", eng, "unposted", len(rest), "error", err)
+				return v.failAll(ctx, org, rest, err.Error())
+			}
+			for _, t := range batch {
+				done[t.ID] = true
+			}
 			if err != nil {
 				v.Logger.WarnContext(ctx, "post failed", "org_id", org, "engine", eng, "tasks", len(batch), "error", err)
 				if ferr := v.failAll(ctx, org, batch, err.Error()); ferr != nil {
 					return ferr
-				}
-				if errors.Is(err, budget.ErrExceeded) {
-					return nil // our account's daily cap: stop posting, nothing to retry today
 				}
 				continue
 			}
