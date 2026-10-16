@@ -202,7 +202,11 @@ func TestHubPages(t *testing.T) {
 func TestTokens(t *testing.T) {
 	a, _ := randomToken(32)
 	b, _ := randomToken(32)
-	if a == b || len(a) < 40 || HashToken(a) == a || HashToken(a) != HashToken(a) {
+	// Hashing the same token twice has to give the same answer, or a stored hash could
+	// never be matched against the token in an email. The two calls are held in
+	// variables so it reads as the claim it is rather than as a tautology.
+	first, second := HashToken(a), HashToken(a)
+	if a == b || len(a) < 40 || first == a || first != second {
 		t.Error("tokens are not random, long or hashed consistently")
 	}
 	slug, err := NewSlug()

@@ -161,7 +161,14 @@ func LoadPerformance(ctx context.Context, tx pgx.Tx, from, to time.Time) (Perfor
 		p.Entities = append(p.Entities, Entity{Name: name, IsBrand: e.isBrand, Mentions: e.mentions, Answers: e.answers,
 			Visibility: pct(e.answers, overall.present), ShareOfVoice: pct(e.mentions, all)})
 	}
-	sort.Slice(p.Entities, func(i, j int) bool { return p.Entities[i].Mentions > p.Entities[j].Mentions })
+	// Name breaks a tie, as it does for cited domains. Entities are collected in a map,
+	// so without it two competitors on equal mentions swap places between page loads.
+	sort.Slice(p.Entities, func(i, j int) bool {
+		if p.Entities[i].Mentions != p.Entities[j].Mentions {
+			return p.Entities[i].Mentions > p.Entities[j].Mentions
+		}
+		return p.Entities[i].Name < p.Entities[j].Name
+	})
 	for v := range versions {
 		p.MethodVersions = append(p.MethodVersions, v)
 	}
