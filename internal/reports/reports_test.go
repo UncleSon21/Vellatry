@@ -202,7 +202,8 @@ func TestHubPages(t *testing.T) {
 func TestTokens(t *testing.T) {
 	a, _ := randomToken(32)
 	b, _ := randomToken(32)
-	if a == b || len(a) < 40 || HashToken(a) == a || HashToken(a) != HashToken(a) {
+	h1, h2 := HashToken(a), HashToken(a)
+	if a == b || len(a) < 40 || h1 == a || h1 != h2 {
 		t.Error("tokens are not random, long or hashed consistently")
 	}
 	slug, err := NewSlug()

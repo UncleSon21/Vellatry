@@ -2,6 +2,10 @@ module github.com/UncleSon21/vellatry
 
 go 1.26.0
 
+// The dashboard's npm packages are not part of this module, but one (flatted) ships a .go
+// file that ./... would otherwise build, vet and test.
+ignore ./web/node_modules
+
 require (
 	cloud.google.com/go v0.123.0
 	cloud.google.com/go/bigquery v1.84.0

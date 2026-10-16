@@ -34,7 +34,7 @@ func fakeEmbeddings(t *testing.T, model string) (*httptest.Server, *int) {
 		vectors := make([][]float32, len(in.Texts))
 		for i, text := range in.Texts {
 			head := strings.Fields(strings.ToLower(text))[0]
-			v := []float32{0, 0, 0}
+			var v []float32
 			switch {
 			case strings.HasPrefix(head, "mattress"):
 				v = []float32{1, 0.05, 0}
