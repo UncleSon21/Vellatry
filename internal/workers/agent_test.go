@@ -272,3 +272,24 @@ func TestAgentRefusesWhatTheModelCannotChoose(t *testing.T) {
 		}
 	})
 }
+
+// TestAgentRefusalNeverRepeatsAModelFigure: when no analysis fits, the model says why,
+// and that reason is shown to the team. It is model output like any other, so it may not
+// carry a number: there is no evidence behind a refusal for any figure to come from.
+func TestAgentRefusalNeverRepeatsAModelFigure(t *testing.T) {
+	model := &scriptedModel{}
+	h := newAgentHarness(t, model)
+	model.script(picks("", "your visibility fell 42% last week for reasons none of these analyses cover"),
+		fails(errors.New("narration must not be asked for")))
+	id := h.ask("Why did our visibility fall 42% last week?")
+	if err := h.work(id); err != nil {
+		t.Fatal(err)
+	}
+	s := h.shown(id)
+	if s.Status != "refused" || strings.Contains(s.Answer, "42") {
+		t.Errorf("the refusal shows the model's figure: %q", s.Answer)
+	}
+	if !strings.HasPrefix(s.Answer, "I cannot answer that: ") {
+		t.Errorf("the refusal = %q, want it to still say it cannot answer, and what it can", s.Answer)
+	}
+}
