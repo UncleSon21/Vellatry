@@ -91,6 +91,13 @@ func (w *agentAnswerWorker) Work(ctx context.Context, job *river.Job[jobargs.Age
 	}
 	if choice.Analysis == "" {
 		reason := strings.TrimSpace(choice.Reason)
+		// The reason is the model's own words, shown to the team with no evidence behind
+		// it, so a figure in it would be a number nobody computed: it is not used.
+		if bad := agent.Unverified(reason, nil); len(bad) > 0 {
+			a.Logger.WarnContext(ctx, "planner reason dropped: figures with no evidence",
+				"org_id", org, "question_id", asked.ID, "figures", strings.Join(bad, ", "))
+			reason = ""
+		}
 		if reason == "" {
 			reason = "that is not something Vellatry measures yet"
 		}

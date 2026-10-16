@@ -35,6 +35,10 @@ func (s *Server) listNotebooks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) addNotebook(w http.ResponseWriter, r *http.Request) {
+	if err := canEdit(r); err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	var in struct {
 		Name string `json:"name"`
 	}
@@ -96,6 +100,10 @@ func (s *Server) getNotebook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) patchNotebook(w http.ResponseWriter, r *http.Request) {
+	if err := canEdit(r); err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	var in struct {
 		Name string `json:"name"`
 	}
@@ -118,6 +126,10 @@ func (s *Server) patchNotebook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteNotebook(w http.ResponseWriter, r *http.Request) {
+	if err := canEdit(r); err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
 		return notebook.Delete(ctx, tx, r.PathValue("id"))
 	})
@@ -132,6 +144,10 @@ func (s *Server) deleteNotebook(w http.ResponseWriter, r *http.Request) {
 // shape here; whether it is safe to connect to is decided at connect time, by the same
 // guard the site crawler uses, because a name can resolve anywhere.
 func (s *Server) addSource(w http.ResponseWriter, r *http.Request) {
+	if err := canEdit(r); err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	var in struct {
 		Kind     string `json:"kind"`           // url | text | file | report
 		URL      string `json:"url"`            // kind = url
@@ -210,6 +226,10 @@ func (s *Server) addSource(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteSource(w http.ResponseWriter, r *http.Request) {
+	if err := canEdit(r); err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
 		src, _, err := notebook.LoadSource(ctx, tx, r.PathValue("sourceId"))
 		if err != nil {
@@ -231,6 +251,10 @@ func (s *Server) deleteSource(w http.ResponseWriter, r *http.Request) {
 // event stream the dashboard is already following. A recipe id asks that recipe's
 // question of this notebook, which is the whole of what running a recipe means.
 func (s *Server) askNotebook(w http.ResponseWriter, r *http.Request) {
+	if err := canEdit(r); err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	var in struct {
 		Question string `json:"question"`
 		RecipeID int64  `json:"recipe_id"`
@@ -324,6 +348,10 @@ func firstLine(text string) string {
 // words. Both live in the same list because both are findings; only their provenance
 // differs, and that is recorded rather than blurred.
 func (s *Server) addNote(w http.ResponseWriter, r *http.Request) {
+	if err := canEdit(r); err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	var in struct {
 		MessageID int64  `json:"message_id"`
 		Title     string `json:"title"`
@@ -360,6 +388,10 @@ func (s *Server) addNote(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) patchNote(w http.ResponseWriter, r *http.Request) {
+	if err := canEdit(r); err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	var in struct {
 		Title string `json:"title"`
 		Body  string `json:"body"`
@@ -388,6 +420,10 @@ func (s *Server) patchNote(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteNote(w http.ResponseWriter, r *http.Request) {
+	if err := canEdit(r); err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
 		n, err := notebook.LoadNote(ctx, tx, pathInt(r, "noteId"))
 		if err != nil {
@@ -421,6 +457,10 @@ func (s *Server) listRecipes(w http.ResponseWriter, r *http.Request) {
 
 // addRecipe keeps a question to ask again, of this notebook or the next one.
 func (s *Server) addRecipe(w http.ResponseWriter, r *http.Request) {
+	if err := canEdit(r); err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	var in struct {
 		Name      string `json:"name"`
 		Question  string `json:"question"`
@@ -453,6 +493,10 @@ func (s *Server) addRecipe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteRecipe(w http.ResponseWriter, r *http.Request) {
+	if err := canEdit(r); err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	err := s.tenant(r, func(ctx context.Context, tx pgx.Tx) error {
 		return notebook.DeleteRecipe(ctx, tx, pathInt(r, "recipeId"))
 	})

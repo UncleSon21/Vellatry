@@ -207,6 +207,7 @@ func TestTokens(t *testing.T) {
 	// variables so it reads as the claim it is rather than as a tautology.
 	first, second := HashToken(a), HashToken(a)
 	if a == b || len(a) < 40 || first == a || first != second {
+
 		t.Error("tokens are not random, long or hashed consistently")
 	}
 	slug, err := NewSlug()
