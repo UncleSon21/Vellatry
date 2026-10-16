@@ -175,6 +175,30 @@ func MarkQueued(ctx context.Context, tx pgx.Tx, taskID int64, providerTaskID str
 	return err
 }
 
+// StrandedAfter is how long a task may sit pending before it is taken to have been
+// stranded. A task is pending only between being created and being posted, which happens
+// in one job run, and a job is killed at five minutes (jobs.Options.JobTimeout), so
+// anything this old was left behind by a job that died in between.
+const StrandedAfter = 30 * time.Minute
+
+// ExpireStranded fails tasks left pending by a job that never posted them, and returns
+// how many. tx must be scoped to the org.
+//
+// Nothing else rescues them, and a pending task is counted as in flight: the planner asks
+// each question only for the answers it still needs, so one stranded task silences its
+// question on that engine for good. Retrying the job does not help either, because the
+// retry plans against the same count and finds nothing to do.
+//
+// Failing them is what the rest of the system already understands: a failed task is not
+// in flight, so the next plan asks the question again.
+func ExpireStranded(ctx context.Context, tx pgx.Tx, older time.Duration) (int, error) {
+	tag, err := tx.Exec(ctx, `
+		UPDATE answer_tasks SET status = 'failed', error = $1, completed_at = now()
+		WHERE status = 'pending' AND created_at < now() - $2::interval`,
+		"never posted: the job that planned it did not finish", older)
+	return int(tag.RowsAffected()), err
+}
+
 // MarkFailed records a task that will never produce an answer.
 func MarkFailed(ctx context.Context, tx pgx.Tx, taskID int64, reason string) error {
 	_, err := tx.Exec(ctx,

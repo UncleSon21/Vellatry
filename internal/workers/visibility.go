@@ -119,12 +119,20 @@ func (w *planOrgWorker) Work(ctx context.Context, job *river.Job[jobargs.Visibil
 	org := job.Args.OrgID
 	var settings store.Settings
 	var tasks []store.Task
+	var stranded int
 	err := db.InTenant(ctx, w.v.Pool, org, func(ctx context.Context, tx pgx.Tx) error {
 		if _, _, err := brand.Load(ctx, tx); err != nil {
 			return err
 		}
 		var err error
 		if settings, err = store.LoadSettings(ctx, tx); err != nil {
+			return err
+		}
+		// Before counting what is in flight, release anything a dead job left pending:
+		// the count is what decides which questions are asked, and a stranded task would
+		// silence its own question for good. Here rather than on a sweep of its own,
+		// because here is the only place the count is read.
+		if stranded, err = store.ExpireStranded(ctx, tx, store.StrandedAfter); err != nil {
 			return err
 		}
 		in, err := store.LoadPlanInput(ctx, tx, settings)
@@ -137,8 +145,16 @@ func (w *planOrgWorker) Work(ctx context.Context, job *river.Job[jobargs.Visibil
 	if errors.Is(err, brand.ErrNoBrand) {
 		return nil
 	}
-	if err != nil || len(tasks) == 0 {
-		return err
+	if err != nil {
+		return err // the transaction rolled back, so nothing was released either
+	}
+	if stranded > 0 {
+		// Loud, because it means a plan job died partway and these questions went
+		// unasked until now.
+		w.v.Logger.WarnContext(ctx, "released tasks a dead plan job left pending", "org_id", org, "tasks", stranded)
+	}
+	if len(tasks) == 0 {
+		return nil
 	}
 	w.v.Logger.InfoContext(ctx, "visibility plan", "org_id", org, "tasks", len(tasks))
 	return w.v.post(ctx, org, settings, tasks)
