@@ -31,6 +31,12 @@ const RRFk = 60.0
 // Retrieved is how many passages an answer may read.
 const Retrieved = 8
 
+// Shortlist is how many fused passages go to the reranker. Deeper than Retrieved on
+// purpose: the point of a reranker is to promote a passage the search put fourth or
+// twelfth, and it can only promote what it is shown. Bounded by what the service will
+// score at once, and by the time a reader is waiting.
+const Shortlist = 24
+
 // Candidates is how deep each half of the search looks before the two are fused.
 const Candidates = 30
 
@@ -166,9 +172,14 @@ func Fuse(limit int, lists ...[]Passage) []Passage {
 	return out
 }
 
-// Retrieve runs both halves and fuses them. A nil query vector (no embedding service, or
-// nothing embedded yet) leaves full text to answer alone, which is worse but is not
-// nothing: the notebook keeps working while the vectors catch up.
+// Retrieve runs both halves and fuses them, returning the shortlist a reranker reads. A
+// nil query vector (no embedding service, or nothing embedded yet) leaves full text to
+// answer alone, which is worse but is not nothing: the notebook keeps working while the
+// vectors catch up.
+//
+// The caller narrows the shortlist to what the answer reads, with Best after reranking
+// it or Top without. Reranking is an HTTP call, and this package is one the api may
+// import, so it never makes one.
 func Retrieve(ctx context.Context, tx pgx.Tx, notebookID, question, model string, q []float32) ([]Passage, error) {
 	text, err := ByText(ctx, tx, notebookID, question, Candidates)
 	if err != nil {
@@ -178,7 +189,41 @@ func Retrieve(ctx context.Context, tx pgx.Tx, notebookID, question, model string
 	if err != nil {
 		return nil, err
 	}
-	return Fuse(Retrieved, text, meaning), nil
+	return Fuse(Shortlist, text, meaning), nil
+}
+
+// Top returns the first n passages, for when there is no reranker.
+func Top(ps []Passage, n int) []Passage {
+	if len(ps) > n {
+		return ps[:n]
+	}
+	return ps
+}
+
+// Best reorders a shortlist by a reranker's scores and keeps the first n. A score is the
+// model's own and means nothing on its own, so it decides the order here and is carried
+// no further: nothing stores one and nobody is shown one.
+//
+// A shortlist and its scores that do not match is a bug in the caller, not something to
+// paper over by pairing them up as far as they go: that would attach the wrong score to
+// a passage and quietly reorder what the answer cites. The search order stands instead.
+func Best(ps []Passage, scores []float64, n int) []Passage {
+	if len(scores) != len(ps) {
+		return Top(ps, n)
+	}
+	order := make([]int, len(ps))
+	for i := range order {
+		order[i] = i
+	}
+	sort.SliceStable(order, func(a, b int) bool { return scores[order[a]] > scores[order[b]] })
+	out := make([]Passage, 0, min(n, len(ps)))
+	for _, i := range order {
+		if len(out) == n {
+			break
+		}
+		out = append(out, ps[i])
+	}
+	return out
 }
 
 func cosine(a, b []float32) float64 {

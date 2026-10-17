@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -469,4 +470,91 @@ func toyVector(text string) []float32 {
 		v[i%3] += float32(r%17) / 100
 	}
 	return v[:]
+}
+
+// A reranker that is down must not stop a question being answered: the search order is
+// a worse answer, not no answer.
+func TestNotebookAnswersWhenTheRerankerIsDown(t *testing.T) {
+	pool := testdb.Pool(t)
+	ctx := context.Background()
+	org, _ := testdb.NewOrg(t, pool, "rerank-down")
+
+	// A service that embeds but refuses to rerank, which is what a half-deployed or
+	// overloaded one looks like.
+	var refused atomic.Int64
+	svc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/embed" {
+			refused.Add(1)
+			http.Error(w, "no such endpoint", http.StatusNotFound)
+			return
+		}
+		var in struct {
+			Texts []string `json:"texts"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&in)
+		out := struct {
+			Model   string      `json:"model"`
+			Dim     int         `json:"dim"`
+			Vectors [][]float32 `json:"vectors"`
+		}{Model: "test-embed-1", Dim: 3}
+		for _, text := range in.Texts {
+			out.Vectors = append(out.Vectors, toyVector(text))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(out)
+	}))
+	t.Cleanup(svc.Close)
+
+	bot := &notebookBot{reply: "Support answers within one business day {one business day}."}
+	n := &Notebooks{Pool: pool, Logger: slog.Default(), Answerer: bot,
+		Embed: &embed.Client{URL: svc.URL, HTTP: svc.Client()},
+		Bus:   events.NewBus(nil, domainevents.Subscriptions()...)}
+	n.Register(river.NewWorkers())
+	tenant := func(fn func(ctx context.Context, tx pgx.Tx) error) {
+		t.Helper()
+		if err := db.InTenant(ctx, pool, org, fn); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var nb notebook.Notebook
+	var m notebook.Message
+	tenant(func(ctx context.Context, tx pgx.Tx) error {
+		var err error
+		if nb, err = notebook.Create(ctx, tx, org, "Support", ""); err != nil {
+			return err
+		}
+		// Two sources, so there is a shortlist worth reranking and the call is made.
+		for _, s := range []struct{ title, body string }{
+			{"Support policy", "Support answers within one business day. Escalations go to the account lead."},
+			{"Office hours", "The Sydney office is open from nine until five on weekdays."},
+		} {
+			src, err := notebook.AddSource(ctx, tx, org, nb.ID, notebook.New{Kind: "text", Title: s.title, Body: s.body})
+			if err != nil {
+				return err
+			}
+			if err := notebook.SourceRead(ctx, tx, org, src.ID, s.title, s.body, notebook.Split(s.body)); err != nil {
+				return err
+			}
+		}
+		// A question that reaches both sources, so there is a shortlist to rerank and
+		// the call is actually made.
+		m, err = notebook.Ask(ctx, tx, org, nb.ID, "", "how quickly does the Sydney support office answer on weekdays")
+		return err
+	})
+
+	if err := (&notebookAnswerWorker{n: n}).Work(ctx, job(jobargs.NotebookAnswer{OrgID: org, MessageID: m.ID})); err != nil {
+		t.Fatalf("a reranker that is down failed the job: %v", err)
+	}
+	tenant(func(ctx context.Context, tx pgx.Tx) error {
+		var err error
+		m, err = notebook.LoadMessage(ctx, tx, m.ID)
+		return err
+	})
+	if refused.Load() == 0 {
+		t.Fatal("the reranker was never called, so this proved nothing about it being down")
+	}
+	if m.Status != "answered" || len(m.Citations) == 0 {
+		t.Errorf("answer = %q (%s), citations %+v; the search order should have answered it", m.Answer, m.Status, m.Citations)
+	}
 }

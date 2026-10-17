@@ -133,7 +133,16 @@ blindspot into a fix whose outcome is measured.
   saying what it said, while a live rollup does not. The version is pinned when it is
   added, and withdrawing the report leaves the passages and the notes citing them exactly
   as they were. For current numbers the team asks the agent, which works them out fresh.
-- Next: a reranker over the fused results, and the first design partner.
+- **Reranking (`ml/embed`, `internal/notebook`):** the hybrid search shortlists, and a
+  cross-encoder decides. It reads the question beside each passage, which an embedding
+  never does, so it can promote the passage that answers the question over one merely on
+  the same subject. The model was picked by measuring every permissively licensed
+  candidate against a written corpus rather than by reputation — one of the ones it beat
+  scores worse than no reranker at all. Through the real stack it takes MRR from 0.679 to
+  0.794 and puts the right passage first on 11 of 16 questions instead of 8, and a live
+  test fails if a model change loses that ground. A reranker that is down means the
+  search order, not a failed question.
+- Next: the first design partner.
 
 | Spike | Question | State |
 | --- | --- | --- |

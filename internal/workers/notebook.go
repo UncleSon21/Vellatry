@@ -373,6 +373,7 @@ func (w *notebookAnswerWorker) answer(ctx context.Context, job *river.Job[jobarg
 	case len(passages) == 0:
 		return save(notebook.WhenTheSourcesCannotSay, "unanswerable", nil, 0)
 	}
+	passages = w.best(ctx, org, msg.Question, passages)
 
 	written, err := w.write(ctx, org, msg.Question, passages)
 	if err != nil {
@@ -391,6 +392,32 @@ func (w *notebookAnswerWorker) answer(ctx context.Context, job *river.Job[jobarg
 		return save(notebook.WhenTheSourcesCannotSay, "unanswerable", nil, dropped)
 	}
 	return save(answer, "answered", cites, dropped)
+}
+
+// best narrows the shortlist to what the answer reads, asking the reranker to choose
+// when there is one. Search puts a passage near the top because it shares the question's
+// words or its shape; the reranker reads the two together and can tell an answer from
+// something merely on the same subject.
+//
+// It runs outside a transaction on purpose: it is an HTTP call, and holding a tenant's
+// database connection open across one would tie up a connection for the length of
+// someone else's network.
+func (w *notebookAnswerWorker) best(ctx context.Context, org, question string, ps []notebook.Passage) []notebook.Passage {
+	if w.n.Embed == nil || len(ps) <= 1 {
+		return notebook.Top(ps, notebook.Retrieved)
+	}
+	texts := make([]string, len(ps))
+	for i, p := range ps {
+		texts[i] = p.Text
+	}
+	ranked, err := w.n.Embed.Rerank(ctx, question, texts)
+	if err != nil {
+		// The search order is a worse answer, not no answer: a reranker that is down
+		// must not stop a question being answered from the right notebook.
+		w.n.Logger.WarnContext(ctx, "notebook answer not reranked, using the search order", "org_id", org, "error", err)
+		return notebook.Top(ps, notebook.Retrieved)
+	}
+	return notebook.Best(ps, ranked.Scores, notebook.Retrieved)
 }
 
 // write asks the model, handed the passages and the question and nothing else.

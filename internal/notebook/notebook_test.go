@@ -191,3 +191,29 @@ func TestContextCarriesOnlyThePassages(t *testing.T) {
 		}
 	}
 }
+
+func TestBestReordersAndTrims(t *testing.T) {
+	ps := []Passage{{ID: 1, Text: "a"}, {ID: 2, Text: "b"}, {ID: 3, Text: "c"}, {ID: 4, Text: "d"}}
+
+	// The reranker promotes what search put third.
+	got := Best(ps, []float64{-2, -8, 5.5, 0.1}, 2)
+	if len(got) != 2 || got[0].ID != 3 || got[1].ID != 4 {
+		t.Errorf("reranked = %v, want the third then the fourth", ids(got))
+	}
+	// Equal scores keep the order search gave them, rather than shuffling.
+	if same := Best(ps, []float64{1, 1, 1, 1}, 3); len(same) != 3 || same[0].ID != 1 || same[2].ID != 3 {
+		t.Errorf("equal scores = %v, want the search order kept", ids(same))
+	}
+	// Scores that do not match the shortlist are a caller's bug: pairing them up as far
+	// as they go would put the wrong score on a passage and reorder what is cited.
+	if fallback := Best(ps, []float64{9, 9}, 3); len(fallback) != 3 || fallback[0].ID != 1 {
+		t.Errorf("mismatched scores = %v, want the search order untouched", ids(fallback))
+	}
+	if none := Best(nil, nil, 3); len(none) != 0 {
+		t.Errorf("no passages = %v", ids(none))
+	}
+	// Asking for more than there are is not an error.
+	if all := Top(ps, 99); len(all) != 4 {
+		t.Errorf("Top beyond the end = %v", ids(all))
+	}
+}

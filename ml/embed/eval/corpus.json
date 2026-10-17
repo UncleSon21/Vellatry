@@ -1,0 +1,37 @@
+{
+  "note": "Passages of the kind a notebook actually holds, and questions asked the way a marketing team asks them. Written by hand to choose a reranker on evidence rather than reputation; it measures the judgement of whoever wrote it, not a customer's, so it is a guard against a model being worse, not proof of how good one is. Questions deliberately avoid repeating the passage's distinctive words, because that is the case full-text search already handles and a reranker is supposed to cover.",
+  "passages": {
+    "voice-plain": "We write plainly and we never oversell. Say what a mattress does, not how it will change your life. Avoid superlatives unless a number backs them.",
+    "voice-terms": "Call them customers, never clients. The product is a mattress, not a sleep system. Our company name takes no article: Koala, not the Koala.",
+    "pricing-plans": "The Growth plan is $79 a month billed monthly, or $790 a year. The Starter plan is $39 a month and has no phone support.",
+    "pricing-discount": "We do not discount for enterprise buyers. Where a deal needs movement, extend the trial rather than cut the rate.",
+    "support-sla": "Support answers within one business day. Escalations go to the account lead, who owns the reply until it is closed.",
+    "support-hours": "The Sydney office is open nine to five on weekdays. There is no weekend cover and no on-call roster.",
+    "rival-pricing": "Ecosa charges $89 a month for its Growth tier, billed annually only. Their entry tier is $45 and excludes phone support.",
+    "rival-claims": "Ecosa's site leans on a hundred-night trial and free returns. They make no claim about firmness adjustment, which we do.",
+    "report-visibility": "AI visibility for August 2026 was 41.0%, up 5.5 points on July. ChatGPT accounted for most of the rise; Gemini was flat.",
+    "report-blindspots": "Four blindspots are open. The largest is a displacement on best mattress australia, where Ecosa is named and we are not.",
+    "meeting-launch": "We agreed to hold the autumn campaign until the new firmness page is live. Dana owns the page, due the second week of March.",
+    "meeting-budget": "Spend for the quarter is capped at forty thousand dollars, with a third reserved for the always-on search programme.",
+    "compliance-claims": "Any claim about spinal alignment needs a citation to the physiotherapy review. Do not describe the product as medically approved.",
+    "compliance-returns": "The trial runs a hundred and twenty nights. A return inside that window is free; after it, the customer pays freight."
+  },
+  "questions": [
+    { "q": "how are we meant to talk about what the product does", "want": ["voice-plain"] },
+    { "q": "is there a word we are not supposed to use for the people who buy from us", "want": ["voice-terms"] },
+    { "q": "what does it cost a month", "want": ["pricing-plans"] },
+    { "q": "can we knock money off for a big buyer", "want": ["pricing-discount"] },
+    { "q": "how quickly does someone hear back when they have a problem", "want": ["support-sla"] },
+    { "q": "is anyone around on a saturday", "want": ["support-hours"] },
+    { "q": "what is the competition charging", "want": ["rival-pricing"] },
+    { "q": "what do our rivals promise that we do not", "want": ["rival-claims"] },
+    { "q": "did we go up or down in AI answers last month", "want": ["report-visibility"] },
+    { "q": "where are we losing to someone else in AI answers", "want": ["report-blindspots"] },
+    { "q": "who is doing the firmness page and when is it due", "want": ["meeting-launch"] },
+    { "q": "how much can we spend this quarter", "want": ["meeting-budget"] },
+    { "q": "what do we have to be careful saying about health", "want": ["compliance-claims"] },
+    { "q": "how long do people get to send it back", "want": ["compliance-returns"] },
+    { "q": "what are the rules about the price of a yearly deal", "want": ["pricing-plans", "rival-pricing"] },
+    { "q": "who handles it when a complaint gets escalated", "want": ["support-sla"] }
+  ]
+}
