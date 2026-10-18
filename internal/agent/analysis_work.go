@@ -177,8 +177,9 @@ func sinceLastReport(ctx context.Context, tx pgx.Tx, in Input) (Bundle, error) {
 	case opened == 0 && resolved == 0 && fixesLive == 0:
 		b.Headline = "Nothing much has changed since " + since.Format("2 Jan 2006") + "."
 	default:
-		b.Headline = fmt.Sprintf("Since %s: %s blindspots confirmed, %s closed and %s fixes went live.",
-			since.Format("2 Jan 2006"), Num(int64(opened)), Num(int64(resolved)), Num(int64(fixesLive)))
+		b.Headline = fmt.Sprintf("Since %s: %s confirmed, %s closed and %s went live.",
+			since.Format("2 Jan 2006"), Count(int64(opened), "blindspot", "blindspots"),
+			Num(int64(resolved)), Count(int64(fixesLive), "fix", "fixes"))
 	}
 	b.Links = append(b.Links, Link{Label: "Reports", Href: "/reports"})
 	return b, nil

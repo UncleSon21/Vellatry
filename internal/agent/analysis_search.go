@@ -146,20 +146,62 @@ func brandTokens(b brand.Brand) []string {
 	return out
 }
 
+// isBranded reports whether a search is for the brand by name. The token has to appear
+// as a word: a plain substring makes "oakley sunglasses" a branded search for a brand
+// called Oak, and "koalatee bedding" one for Koala. Counting someone else's search as
+// branded flatters the brand and understates what the team's own work won, so the
+// boundary is checked the same way a cited domain's is (read.Classify).
+//
+// A trailing "s" is allowed, because "koalas" is still a search for the brand. A
+// possessive needs no rule: the apostrophe is already a boundary.
 func isBranded(query string, tokens []string) bool {
 	q := strings.ToLower(query)
 	for _, t := range tokens {
-		if strings.Contains(q, t) {
-			return true
+		for at := 0; at < len(q); {
+			i := strings.Index(q[at:], t)
+			if i < 0 {
+				break
+			}
+			i += at
+			if wordAt(q, i, len(t)) {
+				return true
+			}
+			at = i + 1
 		}
 	}
 	return false
 }
 
+// wordAt reports whether q[i:i+n] stands as a word: nothing alphanumeric either side of
+// it, give or take a plural "s".
+func wordAt(q string, i, n int) bool {
+	if i > 0 && alnum(rune(q[i-1])) {
+		return false
+	}
+	end := i + n
+	if end < len(q) && (q[end] == 's' || q[end] == 'S') {
+		end++ // "koalas" is the brand; "koalatee" is not
+	}
+	return end >= len(q) || !alnum(rune(q[end]))
+}
+
+func alnum(r rune) bool {
+	return r == '_' || (r >= '0' && r <= '9') || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r > 127
+}
+
+// movers lists the searches that changed most, over everything in either period. A
+// search that stopped entirely is the one a team most needs to see — it is the question
+// "why did traffic drop" answered — and iterating only over this period's searches left
+// it out, because it has no row in this period at all.
 func movers(cur, before map[string]int64, limit int) Table {
 	var all []queryStat
 	for q, c := range cur {
 		all = append(all, queryStat{q, c - before[q]})
+	}
+	for q, b := range before {
+		if _, still := cur[q]; !still {
+			all = append(all, queryStat{q, -b})
+		}
 	}
 	sort.Slice(all, func(i, j int) bool {
 		if abs(float64(all[i].clicks)) != abs(float64(all[j].clicks)) {
@@ -295,8 +337,8 @@ func fixOutcomes(ctx context.Context, tx pgx.Tx, in Input) (Bundle, error) {
 	}
 	b.Add(Fact{ID: "blindspots_resolved", Label: "Blindspots closed since", Value: Num(int64(resolved)), Raw: float64(resolved),
 		Note: "questions where an engine started mentioning you again"})
-	b.Headline = fmt.Sprintf("%s fixes have been confirmed live, and %s blindspots closed since the first of them.",
-		Num(int64(len(fixes))), Num(int64(resolved)))
+	b.Headline = fmt.Sprintf("%s been confirmed live, and %s closed since the first of them.",
+		Count(int64(len(fixes)), "fix has", "fixes have"), Count(int64(resolved), "blindspot", "blindspots"))
 	b.Links = append(b.Links, Link{Label: "Fixes", Href: "/fixes"})
 	return b, nil
 }

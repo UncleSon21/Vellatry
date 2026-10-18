@@ -145,6 +145,16 @@ func Num(n int64) string {
 	return b.String()
 }
 
+// Count writes a number with the noun that agrees with it: "1 fix", "2 fixes". A
+// headline reading "1 fixes have been confirmed live" is the kind of thing a CMO reads
+// as carelessness, and decides the figures were produced with the same care.
+func Count(n int64, singular, plural string) string {
+	if n == 1 || n == -1 {
+		return Num(n) + " " + singular
+	}
+	return Num(n) + " " + plural
+}
+
 // Change writes a change in a count as a percentage.
 func Change(cur, prev int64) string {
 	if prev == 0 {
