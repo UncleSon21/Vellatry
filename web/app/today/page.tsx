@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useApi, useEvents } from '@/lib/api'
 import { Card, Chart, ErrorNote, Empty, MetricTile, Pill, Table, Unloaded } from '@/components/ui'
-import { change, day, dec, num, pct, points, when } from '@/lib/format'
+import { change, count, day, dec, num, pct, points, when } from '@/lib/format'
 import { dateRange } from '@/lib/format'
 import { dailyVisibility, type VisibilityPoint } from '@/lib/visibility'
 
@@ -138,7 +138,7 @@ export default function Overview() {
         />
       </Card>
 
-      <Card title="Site" sub={site.data?.last_done?.finished_at ? `Last crawled ${day(site.data.last_done.finished_at)}, ${num(site.data.last_done.pages)} pages.` : undefined} actions={<Link className="btn" href="/site">Site</Link>}>
+      <Card title="Site" sub={site.data?.last_done?.finished_at ? `Last crawled ${day(site.data.last_done.finished_at)}, ${count(site.data.last_done.pages, 'page', 'pages')}.` : undefined} actions={<Link className="btn" href="/site">Site</Link>}>
         {!site.data ? (
           <Unloaded of={site} />
         ) : !crawled ? (
@@ -147,10 +147,10 @@ export default function Overview() {
           </Empty>
         ) : (
           <div className="row">
-            <Pill tone={critical > 0 ? 'bad' : 'good'}>{num(critical)} critical</Pill>
-            <Pill tone="warn">{num(site.data.open_by_severity?.warning ?? 0)} warnings</Pill>
-            <Pill>{num(site.data.fixes_by_status?.proposed ?? 0)} fixes waiting</Pill>
-            <Pill tone="good">{num(site.data.fixes_by_status?.live ?? 0)} fixes live</Pill>
+            <Pill tone={critical > 0 ? 'bad' : 'good'}>{count(critical, 'critical issue', 'critical issues')}</Pill>
+            <Pill tone="warn">{count(site.data.open_by_severity?.warning, 'warning', 'warnings')}</Pill>
+            <Pill>{count(site.data.fixes_by_status?.proposed, 'fix', 'fixes')} waiting</Pill>
+            <Pill tone="good">{count(site.data.fixes_by_status?.live, 'fix', 'fixes')} live</Pill>
           </div>
         )}
       </Card>

@@ -90,3 +90,12 @@ export function thisMonth(): string {
   const d = new Date()
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
+
+// count writes a number with the noun that agrees with it: "1 fix", "2 fixes". The same
+// helper exists in Go (agent.Count) for the same reason: "1 warnings" on a dashboard
+// reads as carelessness, and a reader decides the figures were produced with the same
+// care as the grammar.
+export function count(n: number | null | undefined, singular: string, plural: string): string {
+  const v = n ?? 0
+  return `${num(v)} ${Math.abs(v) === 1 ? singular : plural}`
+}

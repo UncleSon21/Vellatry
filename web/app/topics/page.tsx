@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { api, useApi, useEvents } from '@/lib/api'
 import { Card, Empty, ErrorNote, Pill, Segmented, Table } from '@/components/ui'
-import { num, when } from '@/lib/format'
+import { count, num, when } from '@/lib/format'
 
 type Topic = {
   id: string
@@ -143,7 +143,7 @@ export default function TopicsPage() {
               <div className="muted" style={{ fontSize: 13 }}>
                 {t.keyword_count ? `${num(t.keyword_count)} keywords` : t.source}
                 {t.intent ? ` · ${t.intent}` : ''}
-                {t.prompts ? ` · ${num(t.prompts)} questions tracked` : ''}
+                {t.prompts ? ` · ${count(t.prompts, 'question', 'questions')} tracked` : ''}
               </div>
               {t.similar_name && t.status === 'proposed' && (
                 <div style={{ fontSize: 13, marginTop: 4 }}>

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { change, dateRange, day, dec, direction, engineName, num, pct, points, thisMonth, when } from './format'
+import { change, count, dateRange, day, dec, direction, engineName, num, pct, points, thisMonth, when } from './format'
 
 describe('missing values', () => {
   it('show a dash, never "null", "undefined" or "NaN"', () => {
@@ -139,5 +139,19 @@ describe('thisMonth', () => {
   it('is the current UTC month', () => {
     const d = new Date()
     expect(thisMonth()).toBe(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`)
+  })
+})
+
+describe('count', () => {
+  it('agrees with its noun', () => {
+    expect(count(0, 'fix', 'fixes')).toBe('0 fixes')
+    expect(count(1, 'fix', 'fixes')).toBe('1 fix')
+    expect(count(2, 'fix', 'fixes')).toBe('2 fixes')
+    expect(count(1500, 'page', 'pages')).toBe('1,500 pages')
+  })
+
+  it('treats nothing as none rather than crashing', () => {
+    expect(count(null, 'warning', 'warnings')).toBe('0 warnings')
+    expect(count(undefined, 'warning', 'warnings')).toBe('0 warnings')
   })
 })

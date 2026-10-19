@@ -7,7 +7,7 @@ import { Card, ErrorNote, Loading, Unloaded } from '@/components/ui'
 import { Brand, BrandResponse, CompetitorsEditor, Differentiators, Recognition, TopicPicker } from '@/components/brand'
 import { Connections, GoogleConnect } from '@/components/GoogleConnect'
 import { Mark } from '@/components/Mark'
-import { num } from '@/lib/format'
+import { count, num } from '@/lib/format'
 
 type Status = {
   org: boolean
@@ -365,7 +365,7 @@ function BlindspotsStep({ status, refresh, onBack }: { status: Status; refresh: 
           <p className="sub" style={{ fontSize: 13 }}>
             Up to {num(settings.data.daily_answer_budget)} answers a day on the {settings.data.plan} plan. You are tracking {num(status.topics.active)}{' '}
             {status.topics.active === 1 ? 'topic' : 'topics'}
-            {status.answers > 0 ? `, and ${num(status.answers)} answers are already in` : ''}.
+            {status.answers > 0 ? `, and ${count(status.answers, 'answer is', 'answers are')} already in` : ''}.
           </p>
         )}
       </Card>

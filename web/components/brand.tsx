@@ -3,7 +3,7 @@
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { api, useApi } from '@/lib/api'
 import { Empty, ErrorNote, Pill } from '@/components/ui'
-import { num, when } from '@/lib/format'
+import { count, num, when } from '@/lib/format'
 
 // The brand setup, shared by the setup wizard and Settings → Brand, so the two can
 // never drift into editing the same thing differently.
@@ -520,7 +520,7 @@ export function TopicPicker({ canEdit, refresh, onChange }: { canEdit: boolean; 
           {(active.data ?? []).map((t) => (
             <span key={t.id} className="chip">
               {t.name}
-              {t.prompts > 0 && <span className="muted" style={{ fontSize: 12 }}>{t.prompts} questions</span>}
+              {t.prompts > 0 && <span className="muted" style={{ fontSize: 12 }}>{count(t.prompts, 'question', 'questions')}</span>}
               {canEdit && (
                 <button type="button" aria-label={`Stop tracking ${t.name}`} onClick={() => decide(t, 'out_of_scope')}>
                   ×

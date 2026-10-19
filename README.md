@@ -147,6 +147,7 @@ blindspot into a fix whose outcome is measured.
 | Spike | Question | State |
 | --- | --- | --- |
 | [01-dataforseo](spikes/01-dataforseo) | Cost, latency and quality of AI answers for Australian queries | Harness built, needs a DataForSEO account |
+| [02-demo-data](spikes/02-demo-data) | A tenant with a month of plausible data, for a demo or for looking at a page with something on it | Run it against a local organisation |
 | 02-bigquery | Search Console ingestion at large-site scale | Not started |
 | 03-jobs | River for fan-out, postback signals, approval waits | Not started |
 | 04-agent | Router + analyses + validator | Not started |
