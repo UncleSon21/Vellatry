@@ -39,9 +39,12 @@ export default function Overview() {
   const answers = perf.data?.overall.answers
   const critical = site.data?.open_by_severity?.critical ?? 0
   // A count is only a count once something was measured: a site never crawled has no
-  // "0 critical issues", and a period Search Console has no data for has no "0 clicks".
+  // "0 critical issues", a period Search Console has no data for has no "0 clicks", and
+  // a brand nobody has asked an engine about yet has no "0 blindspots" — that one reads
+  // as good news, which is the worst way to be wrong.
   const crawled = Boolean(site.data?.last_done)
   const searched = (search.data?.current.days ?? 0) > 0
+  const asked = (answers ?? 0) > 0
 
   // No confirmed blindspots can mean four things; say which one it is.
   const noBlindspots =
@@ -90,7 +93,7 @@ export default function Overview() {
           previous={search.data?.previous.clicks}
           change={searched && search.data ? change(search.data.current.clicks, search.data.previous.clicks) : ''}
         />
-        <MetricTile label="Blindspots confirmed" value={spots.data ? num(confirmed.length) : '-'} current={confirmed.length} previous={0} higherIsBetter={false} />
+        <MetricTile label="Blindspots confirmed" value={asked ? num(confirmed.length) : '-'} current={confirmed.length} previous={0} higherIsBetter={false} />
         <MetricTile label="Critical site issues" value={crawled ? num(critical) : '-'} current={critical} previous={0} higherIsBetter={false} />
       </div>
 

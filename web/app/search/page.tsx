@@ -4,25 +4,23 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useApi } from '@/lib/api'
 import { Card, Chart, Empty, ErrorNote, MetricTile, RangePicker, Table } from '@/components/ui'
-import { change, dateRange, dec, num, pct } from '@/lib/format'
+import { change, dateRange, dec, num, pct, thisMonth } from '@/lib/format'
 
 type Totals = { clicks: number; impressions: number; ctr: number | null; position: number | null; days: number }
 type Overview = { from: string; to: string; current: Totals; previous: Totals; series: { day: string; clicks: number; impressions: number; position: number | null }[] }
 type TopRow = { key: string; clicks: number; impressions: number; ctr: number | null; position: number | null; clicks_prev: number | null }
+type TopMonth = { month: string; rows: TopRow[] }
 type ChannelTotal = { name: string; sessions: number; users: number; key_events: number }
-
-function thisMonth(): string {
-  const d = new Date()
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString().slice(0, 10)
-}
 
 export default function SearchPage() {
   const [days, setDays] = useState(28)
   const { from, to } = dateRange(days)
   const month = thisMonth()
   const overview = useApi<Overview>(`/v1/search/overview?from=${from}&to=${to}`, [days])
-  const queries = useApi<TopRow[]>(`/v1/search/queries?month=${month}&limit=20`)
-  const pages = useApi<TopRow[]>(`/v1/search/pages?month=${month}&limit=20`)
+  // The api answers {month, rows}: typing these as a bare array crashed the page the
+  // moment a request succeeded, which it never had, because the month was malformed.
+  const queries = useApi<TopMonth>(`/v1/search/queries?month=${month}&limit=20`)
+  const pages = useApi<TopMonth>(`/v1/search/pages?month=${month}&limit=20`)
   const referrals = useApi<{ totals: ChannelTotal[] }>(`/v1/analytics/ai-referrals?from=${from}&to=${to}`, [days])
 
   const cur = overview.data?.current
@@ -76,7 +74,7 @@ export default function SearchPage() {
           head={['Search', 'Clicks', 'Impressions', 'CTR', 'Position']}
           num={[1, 2, 3, 4]}
           empty={<Empty label="Nothing recorded this month">Searches appear here as Search Console reports them.</Empty>}
-          rows={(queries.data ?? []).map((q) => [q.key, num(q.clicks), num(q.impressions), pct(q.ctr), dec(q.position)])}
+          rows={(queries.data?.rows ?? []).map((q) => [q.key, num(q.clicks), num(q.impressions), pct(q.ctr), dec(q.position)])}
         />
       </Card>
 
@@ -86,7 +84,7 @@ export default function SearchPage() {
           head={['Page', 'Clicks', 'Impressions', 'CTR', 'Position']}
           num={[1, 2, 3, 4]}
           empty={<Empty label="Nothing recorded this month">Pages appear here as Search Console reports clicks on them.</Empty>}
-          rows={(pages.data ?? []).map((p) => [p.key, num(p.clicks), num(p.impressions), pct(p.ctr), dec(p.position)])}
+          rows={(pages.data?.rows ?? []).map((p) => [p.key, num(p.clicks), num(p.impressions), pct(p.ctr), dec(p.position)])}
         />
       </Card>
     </>

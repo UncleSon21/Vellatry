@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { change, dateRange, day, dec, direction, engineName, num, pct, points, when } from './format'
+import { change, dateRange, day, dec, direction, engineName, num, pct, points, thisMonth, when } from './format'
 
 describe('missing values', () => {
   it('show a dash, never "null", "undefined" or "NaN"', () => {
@@ -127,5 +127,17 @@ describe('dateRange', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-01-02T10:00:00Z'))
     expect(dateRange(28)).toEqual({ from: '2025-12-05', to: '2026-01-01' })
+  })
+})
+
+describe('thisMonth', () => {
+  it('is the month in the format the api accepts', () => {
+    // The api parses it with Go's "2006-01": a day on the end is refused.
+    expect(thisMonth()).toMatch(/^\d{4}-(0[1-9]|1[0-2])$/)
+  })
+
+  it('is the current UTC month', () => {
+    const d = new Date()
+    expect(thisMonth()).toBe(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`)
   })
 })

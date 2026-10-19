@@ -80,3 +80,13 @@ export function dateRange(days: number): { from: string; to: string } {
   const iso = (d: Date) => d.toISOString().slice(0, 10)
   return { from: iso(from), to: iso(to) }
 }
+
+// thisMonth names the current UTC month the way the api's ?month= expects it: YYYY-MM.
+// It used to be written where it was called, as YYYY-MM-DD, which the api refused —
+// so "Top searches this month" and "Top pages this month" failed on every load, for
+// every tenant, and showed the refusal as if reloading might help. Neither side was
+// wrong on its own, which is why it lived here untested rather than being caught.
+export function thisMonth(): string {
+  const d = new Date()
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+}
