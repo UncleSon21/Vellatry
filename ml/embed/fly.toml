@@ -15,8 +15,14 @@ primary_region = "syd"
 [[services]]
   internal_port = 8000
   protocol = "tcp"
-  # Asleep between runs; the worker's first request wakes it. Embedding is a batch job
-  # after keyword research or a topic change, not something a person waits on.
+  # Asleep between runs; the first request wakes it. Embedding on its own was a batch
+  # job after keyword research or a topic change, but reranking is not: a notebook
+  # question embeds, retrieves and reranks while somebody waits, so a cold start is in
+  # front of a reader. It is kept asleep anyway, because the delay is a few seconds on
+  # the first question after an idle spell (the image warms both models in about two),
+  # the page says it is reading the sources, and a rerank that fails falls back to the
+  # search order rather than to nothing. Set min_machines_running = 1 if a customer
+  # uses notebooks enough to notice.
   auto_stop_machines = "stop"
   auto_start_machines = true
   min_machines_running = 0
@@ -31,6 +37,8 @@ primary_region = "syd"
     timeout = "5s"
     grace_period = "20s"
 
+# Measured on the built image: 679 MB on disk, 309 MB resident with both models warm,
+# ready two seconds after start. 1 GB leaves room for a batch of 256 texts.
 [[vm]]
   size = "shared-cpu-1x"
   memory = "1gb"

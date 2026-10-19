@@ -26,6 +26,29 @@ process with a public address) and `worker` (no address; it runs the job queue).
   connections without BigQuery. It lists every problem at once.
   `internal/config` tests `fly.toml` against these checks, so a bad value there fails CI.
 
+## What a working build looks like
+
+Both images were built and run from this repository on 19 October 2026, so if yours
+comes out very different, something is wrong rather than merely new.
+
+| | Size | First healthy | Resident |
+| --- | --- | --- | --- |
+| `Dockerfile` (api, worker, migrate) | 48.5 MB | — | — |
+| `ml/embed/Dockerfile` | 679 MB | 2 s | 309 MB of its 1 GB, both models warm |
+
+The embedding image is large because it bakes two models' weights rather than fetching
+them on first use. That is deliberate: a machine that has just woken answers without a
+download.
+
+Two things worth running once before you trust a deploy:
+
+- `docker run --rm -e VELLATRY_ENV=production -e DATABASE_URL=... <image> api` should
+  refuse to start and list every missing setting at once. If it starts, the production
+  checks are not doing their job.
+- `docker run --rm -e DATABASE_URL=<empty database> <image> migrate` should apply every
+  migration to a brand new database. That is what the release command does on your
+  first deploy, and a failure there stops the release rather than half-migrating.
+
 ## 1. Postgres on Neon
 
 1. Create a Neon project in **AWS Asia Pacific (Sydney)** with Postgres 17.
