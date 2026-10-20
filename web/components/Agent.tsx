@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { api, useEvents } from '@/lib/api'
+import { day } from '@/lib/format'
 
 type Fact = { id: string; label: string; value: string; note?: string; trend?: string }
 type Table = { id: string; title: string; head: string[]; rows: string[][]; caption?: string }
@@ -10,6 +11,8 @@ type Action = { kind: string; label: string; confirm: string; params?: Record<st
 type Bundle = {
   analysis?: string
   headline?: string
+  from?: string
+  to?: string
   facts?: Fact[]
   tables?: Table[]
   links?: { label: string; href: string }[]
@@ -105,6 +108,14 @@ export function Ask({ from, to }: { from?: string; to?: string }) {
         {answer?.status === 'answered' && (
           <>
             <p className="answer">{answer.answer}</p>
+            {/* The question decides the period, not the page: ask "this month" on a
+                page showing 28 days and the figures differ from the ones beside them.
+                Saying which days the answer covers is what makes the two reconcilable. */}
+            {bundle?.from && bundle?.to && (
+              <p className="sub" style={{ marginTop: -8 }}>
+                {day(bundle.from)} to {day(bundle.to)}
+              </p>
+            )}
             {bundle?.empty && <div className="notice empty">{bundle.empty}</div>}
             {bundle?.facts && bundle.facts.length > 0 && (
               <ul className="evidence">
