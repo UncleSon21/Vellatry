@@ -29,7 +29,8 @@ func TestReportsHub(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &Server{Pool: pool, Bus: events.NewBus(inserter, domainevents.Subscriptions()...), Verifier: DevVerifier{},
-		Hub: &Hub{Pool: pool, Logger: slog.Default()}, Logger: slog.Default()}
+		// CanEmail: the ordinary case, a deployment that can send sign-in links.
+		Hub: &Hub{Pool: pool, Logger: slog.Default()}, Logger: slog.Default(), CanEmail: true}
 	srv := httptest.NewServer(s.Handler())
 	t.Cleanup(srv.Close)
 	s.HubURL = srv.URL
@@ -222,4 +223,45 @@ func hubBrowser(t *testing.T, base string) (
 		return resp.StatusCode, string(b)
 	}
 	return get, post
+}
+
+// An emailed link is the only way into the hub, so a deployment that cannot send email
+// cannot let anyone in. Saying "check your email" there is a lie the reader cannot see
+// through: they would wait instead of telling anyone.
+func TestHubSaysSoWhenItCannotSendALink(t *testing.T) {
+	pool := testdb.Pool(t)
+	inserter, err := jobs.NewInserter(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{Pool: pool, Bus: events.NewBus(inserter, domainevents.Subscriptions()...), Verifier: DevVerifier{},
+		Hub: &Hub{Pool: pool, Logger: slog.Default()}, Logger: slog.Default()} // CanEmail is false
+	srv := httptest.NewServer(s.Handler())
+	t.Cleanup(srv.Close)
+	s.HubURL = srv.URL
+
+	stamp := time.Now().Format("150405.000000")
+	domain := "quiet-" + stamp + ".com"
+	team := client{t, srv, "lead-" + stamp + "@" + domain}
+	if code, body, _ := team.do("POST", "/v1/onboarding", map[string]any{"org_name": "Quiet Co",
+		"brand": map[string]any{"name": "Quiet", "domain": domain}}); code != http.StatusCreated {
+		t.Fatalf("onboarding: %d %v", code, body)
+	}
+	_, body, _ := team.do("GET", "/v1/hub", nil)
+	base := strings.TrimPrefix(body["url"].(string), srv.URL)
+
+	_, post := hubBrowser(t, srv.URL)
+	_, page := post(base+"/login", url.Values{"email": {"cmo@" + domain}}, srv.URL)
+	if strings.Contains(page, "Check your email") {
+		t.Error("the hub told a reader to check an inbox nothing would arrive in")
+	}
+	if !strings.Contains(page, "not switched on") || !strings.Contains(page, "marketing team") {
+		t.Errorf("the page does not say what happened or who can fix it:\n%s", page)
+	}
+
+	// With a sender, the ordinary path is unchanged.
+	s.CanEmail = true
+	if _, page := post(base+"/login", url.Values{"email": {"cmo@" + domain}}, srv.URL); !strings.Contains(page, "Check your email") {
+		t.Errorf("a deployment that can send email did not say so:\n%s", page)
+	}
 }

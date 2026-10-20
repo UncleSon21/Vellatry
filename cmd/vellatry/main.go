@@ -145,6 +145,7 @@ func runAPI(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *slo
 	server := &api.Server{
 		Pool: pool, Bus: events.NewBus(inserter, domainevents.Subscriptions()...),
 		Verifier: verifier, Hub: hub, Logger: log, AllowedOrigins: cfg.AllowedOrigins, AppURL: cfg.AppURL, HubURL: cfg.HubURL,
+		CanEmail: cfg.EmailConfigured(),
 	}
 	box, err := openBox(cfg, log)
 	if err != nil {

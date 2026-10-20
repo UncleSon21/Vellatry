@@ -188,6 +188,19 @@ func (s *Server) hubLogin(w http.ResponseWriter, r *http.Request, h hubCtx) {
 		s.hubPage(w, http.StatusOK, page)
 		return
 	}
+	if !s.CanEmail {
+		// Nothing would arrive. Saying "check your email" here is a lie the reader
+		// cannot see through, and they would wait rather than tell anyone.
+		//
+		// After the allowed check, not before it: someone who may not read these
+		// reports is turned away for that reason, and learns nothing about how this
+		// deployment is set up.
+		s.hubPage(w, http.StatusOK, reports.HubPage{Kind: "message", Org: h.orgName, Brand: h.brand, Base: h.base,
+			Error: "Sign-in links are not switched on yet",
+			Message: "Vellatry cannot send email for " + h.orgName + " at the moment, so it cannot send you a link. " +
+				"Tell the marketing team; they can fix it, and the reports are waiting for you here once they have."})
+		return
+	}
 	page.Kind = "sent"
 	s.hubPage(w, http.StatusOK, page)
 }

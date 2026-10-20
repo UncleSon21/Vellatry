@@ -277,3 +277,59 @@ func TestAskPanelAndAnswerRules(t *testing.T) {
 		t.Error("the panel appeared without one being asked for")
 	}
 }
+
+// A column no row has anything in is dropped. A change column is empty on a first
+// report, because there is nothing before it to compare with, and a heading with blanks
+// under it reads as data that failed rather than data that does not exist yet.
+func TestEmptyColumnsAreDropped(t *testing.T) {
+	first := Snapshot{Version: SnapshotVersion, Org: "Fresh Mattress Co", Brand: "Freshly",
+		Period:   Period{Start: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC), End: time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC), Label: "September 2026"},
+		Previous: Period{Label: "August 2026"}, Order: []string{SecVisibility},
+		Visibility: &VisibilitySection{Answers: 561, Visibility: Pair{Current: fp(27.6)},
+			ByEngine: []EngineRow{
+				{Engine: "chatgpt", Visibility: Pair{Current: fp(32.9)}},
+				{Engine: "gemini", Visibility: Pair{Current: fp(18.2)}},
+			}}}
+
+	blocks := Layout(first, nil)
+	var byEngine *Table
+	for i, b := range blocks {
+		for j := range b.Tables {
+			if b.Tables[j].Title == "By engine" {
+				byEngine = &blocks[i].Tables[j]
+			}
+		}
+	}
+	if byEngine == nil {
+		t.Fatal("no by-engine table")
+	}
+	if len(byEngine.Head) != 2 || byEngine.Head[1] != "Visibility" {
+		t.Errorf("headings = %v, want the empty change column gone", byEngine.Head)
+	}
+	for _, row := range byEngine.Rows {
+		if len(row) != len(byEngine.Head) {
+			t.Errorf("row %v does not match %d headings", row, len(byEngine.Head))
+		}
+	}
+
+	// With something to compare against, the column stays.
+	second := first
+	second.Visibility = &VisibilitySection{Answers: 561, Visibility: Pair{Current: fp(27.6), Previous: fp(20.0)},
+		ByEngine: []EngineRow{
+			{Engine: "chatgpt", Visibility: Pair{Current: fp(32.9), Previous: fp(25.0)}},
+			{Engine: "gemini", Visibility: Pair{Current: fp(18.2), Previous: fp(15.0)}},
+		}}
+	for _, b := range Layout(second, nil) {
+		for _, tbl := range b.Tables {
+			if tbl.Title == "By engine" && len(tbl.Head) != 3 {
+				t.Errorf("with a period to compare, headings = %v, want the change column back", tbl.Head)
+			}
+		}
+	}
+
+	// The first column is what the row is about and stays even when it is blank.
+	kept := dropEmptyColumns(Table{Head: []string{"Engine", "Visibility"}, Rows: [][]string{{"", "10%"}}, TextCols: 1})
+	if len(kept.Head) != 2 {
+		t.Errorf("the first column was dropped: %v", kept.Head)
+	}
+}

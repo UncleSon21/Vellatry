@@ -34,6 +34,12 @@ type Server struct {
 	Box         *secrets.Box
 	AppURL      string // the web app, for redirects back from providers
 	HubURL      string // the reports hub's public base URL
+
+	// CanEmail says whether this deployment has an email sender. The api sends nothing
+	// itself — the worker does — but an emailed link is the only way into the hub, so
+	// without one the sign-in page has to say so rather than tell a CMO to check an
+	// inbox nothing will arrive in.
+	CanEmail bool
 }
 
 // Handler returns the HTTP routes.

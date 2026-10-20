@@ -194,7 +194,60 @@ func Layout(s Snapshot, notes map[string]string) []Block {
 		}
 		b.Key = key
 		b.Note = strings.TrimSpace(notes[key])
+		for i := range b.Tables {
+			b.Tables[i] = dropEmptyColumns(b.Tables[i])
+		}
 		out = append(out, *b)
+	}
+	return out
+}
+
+// dropEmptyColumns removes a column no row has anything in. A change column is empty on
+// a first report, because there is no period before it to compare with — and a heading
+// with three blanks under it reads as data that failed to load rather than data that
+// does not exist yet, which is the same mistake the absence rule exists to stop.
+//
+// It runs over every table at the end of Layout rather than at each call site, so the
+// figure check and the plain-text rendering see exactly the table the reader does.
+func dropEmptyColumns(t Table) Table {
+	keep := make([]int, 0, len(t.Head))
+	for i := range t.Head {
+		used := false
+		for _, row := range t.Rows {
+			if i < len(row) && strings.TrimSpace(row[i]) != "" {
+				used = true
+				break
+			}
+		}
+		// The first column is what the row is about, and stays even if it is blank.
+		if used || i == 0 {
+			keep = append(keep, i)
+		}
+	}
+	if len(keep) == len(t.Head) {
+		return t
+	}
+	out := t
+	out.Head = pick(t.Head, keep)
+	out.Rows = make([][]string, len(t.Rows))
+	for r, row := range t.Rows {
+		out.Rows[r] = pick(row, keep)
+	}
+	out.TextCols = 0
+	for _, i := range keep {
+		if i < t.TextCols {
+			out.TextCols++
+		}
+	}
+	return out
+}
+
+func pick(row []string, keep []int) []string {
+	out := make([]string, 0, len(keep))
+	for _, i := range keep {
+		if i < len(row) {
+			out = append(out, row[i])
+		}
 	}
 	return out
 }

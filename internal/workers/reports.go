@@ -406,8 +406,21 @@ type hubLoginEmailWorker struct {
 // database keeps its hash, and neither the event nor the job holds it.
 func (w *hubLoginEmailWorker) Work(ctx context.Context, job *river.Job[jobargs.HubLoginEmail]) error {
 	if w.r.Email == nil {
+		// Somebody tried to read the reports and could not get in. A log line is seen by
+		// nobody who can fix it, and an emailed link is the only way into the hub, so the
+		// team is told. Once a day per address is enough: they will ask again.
 		w.r.Logger.WarnContext(ctx, "hub sign-in link not sent: email is not configured", "org_id", job.Args.OrgID)
-		return nil
+		return db.InTenant(ctx, w.r.Pool, job.Args.OrgID, func(ctx context.Context, tx pgx.Tx) error {
+			_, err := w.r.Notify.record(ctx, tx, job.Args.OrgID, automation.Notification{
+				Kind: "hub_login_undeliverable", Severity: "warning", Delivery: "immediate",
+				DedupeKey: fmt.Sprintf("hub_login_undeliverable:%s:%s", job.Args.Email, w.r.Now().UTC().Format(time.DateOnly)),
+				Title:     "Someone could not sign in to your reports",
+				Body: job.Args.Email + " asked for a link to your reports hub and Vellatry could not send it, because email is not set up " +
+					"for this deployment. Nothing reached them, and they have no other way in.",
+				Link: "/reports",
+			})
+			return err
+		})
 	}
 	var token, brandName string
 	var hub reports.Hub
