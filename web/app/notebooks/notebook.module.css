@@ -59,10 +59,12 @@
 
 /* A quiet control that only shows itself on hover or focus: removing a source should be
    possible, not inviting. */
+/* --muted, not --faint: this is a control's label, not a caption, and --faint is
+   3.06:1 on paper. It is quiet by being hidden until hover, which costs no contrast. */
 .remove {
   border: 0;
   background: transparent;
-  color: var(--faint);
+  color: var(--muted);
   padding: 2px 6px;
   opacity: 0;
 }
@@ -159,7 +161,9 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--faint);
+  /* The only thing saying whether these are the notebook's words or the team's, so it
+     has to be readable rather than merely present: --faint fails AA, --muted does not. */
+  color: var(--muted);
   font-weight: 400;
   white-space: nowrap;
 }

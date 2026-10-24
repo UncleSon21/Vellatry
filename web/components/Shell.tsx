@@ -23,9 +23,16 @@ export function Shell({ children }: { children: ReactNode }) {
   if (path.startsWith('/onboarding')) return <main className="wizard">{children}</main>
   return (
     <>
+      {/* Fifteen navigation links stand between the keyboard and the page, on every
+          page. This is the first thing focus reaches and the only way past them. */}
+      <a className="skip" href="#main">
+        Skip to content
+      </a>
       <div className="shell">
         <Nav />
-        <main className="main">{openPaths.includes(path) ? children : <Gate>{children}</Gate>}</main>
+        <main className="main" id="main">
+          {openPaths.includes(path) ? children : <Gate>{children}</Gate>}
+        </main>
       </div>
       <Ask />
     </>

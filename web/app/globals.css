@@ -36,6 +36,17 @@ a { color: inherit; }
 /* Keyboard focus everywhere: the accent ring from the design rules. */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* Out of the way until it is the thing you have reached, then plainly on the page.
+   Hiding it with display:none would take it out of the tab order, which is the one
+   thing it must stay in. */
+.skip {
+  position: fixed; top: 8px; left: 8px; z-index: 60;
+  background: var(--ink); color: #fff; border-radius: 6px;
+  padding: 10px 14px; font-size: 14px; font-weight: 600; text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip:focus { transform: none; }
+
 .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
 .side { border-right: 1px solid var(--line); background: var(--panel); padding: 20px 12px; }
 .brandmark {

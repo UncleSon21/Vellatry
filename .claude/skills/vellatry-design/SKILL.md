@@ -151,9 +151,20 @@ graph paper under it). Pointer effects are mouse-only and never run with reduced
 
 ## Accessibility
 
-- WCAG AA contrast. `--faint` is for captions only, never for text someone must read.
+- WCAG AA contrast. `--faint` is for captions only, never for text someone must read:
+  measured, it is 3.06:1 on paper and 3.45:1 on a card, so it fails AA for body text and
+  passes only as large text. A control's label is not a caption — if something is quiet
+  because it is secondary, use `--muted` (6.62 and 7.47), and let position or an
+  appear-on-hover do the rest. Every other pair the product uses passes AA: ink, muted,
+  accent, good, bad and warn on both backgrounds, and both mention colours on their
+  soft backgrounds. `--coral-ink` on solid `--coral` is 2.13 and is never used; solid
+  coral is a stroke, a dash or a fill, never a text background.
 - Visible focus: 2px `--accent` outline, 2 to 3px offset. Never remove outlines.
-- Semantic landmarks and one `h1` per page. Illustrations of the product get an
+- Semantic landmarks and one `h1` per page, and a "Skip to content" link first in the
+  tab order (`components/Shell.tsx`): fifteen navigation links stand between the
+  keyboard and the page otherwise, on every page. It is moved off screen with a
+  transform rather than `display: none`, because the one thing it must stay in is the
+  tab order. Illustrations of the product get an
   `aria-label` or are `aria-hidden` with the point made in text nearby. Tabs are real
   tabs (`role="tablist"`, `aria-selected`, `aria-controls`).
 
