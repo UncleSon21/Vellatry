@@ -72,7 +72,10 @@ blindspot into a fix whose outcome is measured.
   uses, on edits that are not saved yet. Finishing (at least one tracked topic) starts
   keyword research. Settings → Brand edits the same setup afterwards.
 - **Landing page and sign-in:** `/` introduces the product: every claim describes
-  shipped behaviour, and the illustrations use no real brands or customer figures.
+  shipped behaviour, and the illustrations use no real brands or customer figures. The
+  claims are worth re-auditing whenever a feature lands — the one that went stale was
+  "within a daily budget you set", true of the api and false of the product until the
+  control existed.
   Sign-in and sign-up are Clerk, themed from the app's own tokens. The session token
   is fetched per request and never stored. Without a Clerk key (local development),
   Clerk is not loaded and the api's header sign-in is used. The app starts at `/today`.

@@ -491,6 +491,10 @@
   transform-origin: left;
   transition: transform 0.35s ease;
 }
+/* The grid is a fixed number of columns with borders on every cell, so a card that
+   leaves a row part-full shows as a gap with a line around it. A last card that spans
+   whatever the column count is keeps the grid whole at every width. */
+.features li.wide { grid-column: 1 / -1; }
 .features li:hover { background: var(--bg); }
 .features li:hover::before { transform: scaleX(1); }
 .features h3 { margin-top: 12px; }

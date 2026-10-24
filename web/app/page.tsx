@@ -254,6 +254,14 @@ export default function Landing() {
                 <h3>Answers you can check</h3>
                 <p>Ask a question in plain English. The answer is computed from your data, and a figure the evidence doesn&apos;t hold is never shown.</p>
               </li>
+              <li className={`${s.reveal} ${s.wide}`}>
+                <span className={s.tag}>Notebook</span>
+                <h3>Your own documents, cited</h3>
+                <p>
+                  Add a brand guide, a competitor&apos;s page or one of your published reports, and ask questions of them. Every sentence of an
+                  answer names the passage it came from, and anything that cannot be traced to one is left out.
+                </p>
+              </li>
             </ul>
           </div>
         </section>
