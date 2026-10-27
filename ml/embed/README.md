@@ -94,3 +94,12 @@ EMBED_URL=http://localhost:8099 go test ./internal/notebook/ -run Live -v
 The corpus is somebody's idea of what should rank first rather than a customer's, so
 these numbers are a guard against a change making retrieval worse, not proof of how good
 retrieval is.
+
+## Does retrieval need a polarity channel?
+
+`eval/polarity.py` measures whether the stack can tell a rule from its prohibition —
+"call them customers" against "never call them clients" — which cosine is widely argued
+to conflate. On a corpus built so that only polarity separates the passages, cosine
+scores MRR 0.792 and the cross-encoder 0.798, so reranking does not cover it; a
+deterministic polarity channel scores 0.905. It is not wired into retrieval: see
+decision 115 for what that evidence does and does not justify.

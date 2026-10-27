@@ -1,0 +1,35 @@
+{
+  "note": "Prohibition-and-prescription pairs, the shape a brand notebook actually holds. Each topic appears twice, once as a rule about what to do and once about what never to do, so topical similarity alone cannot separate them and only polarity can. Hand-written, so it measures the judgement of whoever wrote it.",
+  "passages": {
+    "name-do":      "Call the people who buy from us customers. It is the word they use for themselves and the word we use in every channel.",
+    "name-dont":    "Never call the people who buy from us clients. Clients is agency language and it reads as distant and transactional.",
+    "price-do":     "Quote the monthly figure first and the annual saving second. Lead with 79 dollars a month, then note that paying yearly takes two months off.",
+    "price-dont":   "Do not quote a discounted price without the date the discount ends. An open-ended sale figure makes the list price look dishonest.",
+    "claims-do":    "Back every performance claim with the measurement behind it, in the same sentence, with the period it covers.",
+    "claims-dont":  "Avoid superlatives in performance claims. Best, fastest and leading are forbidden unless a cited number sits beside them.",
+    "tone-do":      "Write plainly and in short sentences. Say what the product does and let the reader decide what it is worth.",
+    "tone-dont":    "Never write in the second person plural about feelings. We know how you feel is the exact register this brand refuses.",
+    "comp-do":      "Name a competitor only when comparing a specific, published, verifiable figure, and link the source.",
+    "comp-dont":    "Do not characterise a competitor's intentions or finances. Stick to what their own published material says.",
+    "legal-do":     "Include the standard efficacy footnote on any page that mentions clinical outcomes.",
+    "legal-dont":   "Never state or imply a medical outcome on a product page. Outcomes belong in the evidence section with the footnote.",
+    "chan-do":      "Post long-form thinking to the blog and let social carry a single line and a link.",
+    "chan-dont":    "Do not reproduce a full blog post inside a social caption. Split attention across two surfaces loses both."
+  },
+  "questions": [
+    {"q": "what word should we use for the people who buy from us",          "want": ["name-do"]},
+    {"q": "which word for our buyers is off limits",                          "want": ["name-dont"]},
+    {"q": "how should a price be presented",                                  "want": ["price-do"]},
+    {"q": "what must never appear next to a sale figure",                     "want": ["price-dont"]},
+    {"q": "what has to accompany a performance claim",                        "want": ["claims-do"]},
+    {"q": "which words are banned when describing performance",               "want": ["claims-dont"]},
+    {"q": "what register should the writing be in",                           "want": ["tone-do"]},
+    {"q": "what style of address is forbidden",                               "want": ["tone-dont"]},
+    {"q": "when are we allowed to mention a rival",                           "want": ["comp-do"]},
+    {"q": "what are we not permitted to say about a rival",                   "want": ["comp-dont"]},
+    {"q": "what needs to go on a page mentioning clinical results",           "want": ["legal-do"]},
+    {"q": "what can a product page never imply",                              "want": ["legal-dont"]},
+    {"q": "where should long thinking be published",                          "want": ["chan-do"]},
+    {"q": "what should a social caption avoid doing",                         "want": ["chan-dont"]}
+  ]
+}
