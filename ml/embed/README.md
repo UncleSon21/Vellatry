@@ -101,5 +101,9 @@ retrieval is.
 "call them customers" against "never call them clients" — which cosine is widely argued
 to conflate. On a corpus built so that only polarity separates the passages, cosine
 scores MRR 0.792 and the cross-encoder 0.798, so reranking does not cover it; a
-deterministic polarity channel scores 0.905. It is not wired into retrieval: see
-decision 115 for what that evidence does and does not justify.
+deterministic polarity channel scores 0.905.
+
+It is not wired into retrieval, and it will not be. On 147 passages chunked by the
+product's own splitter from real editorial guidance, the detector flags 85% of them, and
+85% of those carry a prohibition and a prescription at once -- one scalar polarity per
+passage assumes a passage has one, and a real passage does not. Decisions 115 and 116.

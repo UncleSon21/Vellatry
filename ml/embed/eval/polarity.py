@@ -21,6 +21,17 @@ cosine and against two cruder ways of spending the same signal, on both corpora.
 Both corpora are hand-written, so these measure the judgement of whoever wrote them. The
 polarity corpus in particular was built to make polarity decisive, which makes it a fair
 test of whether the channel helps and a poor estimate of how often it would fire.
+
+THE CHANNEL DOES NOT SURVIVE REAL DOCUMENTS, and the 0.905 below should not be read as a
+reason to wire it in. Measured over 147 passages chunked by the product's own splitter
+from ten real editorial guidance pages (spikes/04-polarity regenerates them), the loose
+detector flags 85% of passages and the strict one 67%, so the flag separates almost
+nothing; the dominant match is a bare "not" doing non-directive work ("you do not need to
+sign up", "Not 'front-end'", "the content might stop being useful"). Worse, and
+structurally, 85% of strictly-flagged passages ALSO carry a prescription, because a
+900-character chunk of a rules document holds several rules at once. One scalar phase per
+passage assumes a passage has one polarity, and a real one does not. The score below is
+an artefact of a corpus with exactly one rule and one clean marker per passage.
 """
 
 from __future__ import annotations
