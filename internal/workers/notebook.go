@@ -338,7 +338,7 @@ func (w *notebookAnswerWorker) answer(ctx context.Context, job *river.Job[jobarg
 		})
 	}
 	if n.Answerer == nil {
-		return save("Answering from documents is not switched on for this account.", "failed", nil, 0)
+		return save(notebook.WhenAnsweringIsOff, "failed", nil, 0)
 	}
 
 	// The question's own vector, so retrieval can find a passage that says the same thing
@@ -379,7 +379,7 @@ func (w *notebookAnswerWorker) answer(ctx context.Context, job *river.Job[jobarg
 	if err != nil {
 		if errors.Is(err, budget.ErrExceeded) {
 			n.Logger.WarnContext(ctx, "notebook question not answered: budget", "org_id", org)
-			return save("", "failed", nil, 0)
+			return save(notebook.WhenTheDayIsSpent, "failed", nil, 0)
 		}
 		return err
 	}

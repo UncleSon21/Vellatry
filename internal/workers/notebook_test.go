@@ -18,6 +18,7 @@ import (
 	"github.com/UncleSon21/vellatry/internal/embed"
 	"github.com/UncleSon21/vellatry/internal/jobargs"
 	"github.com/UncleSon21/vellatry/internal/notebook"
+	"github.com/UncleSon21/vellatry/internal/platform/budget"
 	"github.com/UncleSon21/vellatry/internal/platform/db"
 	"github.com/UncleSon21/vellatry/internal/platform/events"
 	"github.com/UncleSon21/vellatry/internal/platform/gateway"
@@ -32,10 +33,14 @@ type notebookBot struct {
 	calls int
 	reply string // {phrase} is replaced by the marker of the passage holding that phrase
 	saw   string
+	fails error // what the gateway returns instead of answering
 }
 
 func (b *notebookBot) Complete(_ context.Context, req gateway.Request) (gateway.Response, error) {
 	b.calls++
+	if b.fails != nil {
+		return gateway.Response{}, b.fails
+	}
 	if req.Purpose != "notebook_answer" {
 		return gateway.Response{}, nil
 	}
@@ -556,5 +561,73 @@ func TestNotebookAnswersWhenTheRerankerIsDown(t *testing.T) {
 	}
 	if m.Status != "answered" || len(m.Citations) == 0 {
 		t.Errorf("answer = %q (%s), citations %+v; the search order should have answered it", m.Answer, m.Status, m.Citations)
+	}
+}
+
+// A question can fail in a way that asking it again cannot fix: no model is configured
+// for this deployment, or the day's spending limit is reached. The reader is the one who
+// has to know which, because the page can only offer "ask it again" when that is true.
+// Both store the sentence the page shows; an empty answer is kept for the transient case.
+func TestNotebookSaysWhyAnAnswerCannotCome(t *testing.T) {
+	pool := testdb.Pool(t)
+	ctx := context.Background()
+
+	for _, tc := range []struct {
+		name string
+		bot  Completer
+		want string
+	}{
+		{"no model is configured", nil, notebook.WhenAnsweringIsOff},
+		{"the day is spent", &notebookBot{fails: budget.ErrExceeded}, notebook.WhenTheDayIsSpent},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			org, _ := testdb.NewOrg(t, pool, "cannot-answer")
+			n := &Notebooks{Pool: pool, Logger: slog.Default(), Answerer: tc.bot,
+				Bus: events.NewBus(nil, domainevents.Subscriptions()...)}
+			n.Register(river.NewWorkers())
+
+			var m notebook.Message
+			tenant := func(fn func(ctx context.Context, tx pgx.Tx) error) {
+				t.Helper()
+				if err := db.InTenant(ctx, pool, org, fn); err != nil {
+					t.Fatal(err)
+				}
+			}
+			tenant(func(ctx context.Context, tx pgx.Tx) error {
+				nb, err := notebook.Create(ctx, tx, org, "Rules", "")
+				if err != nil {
+					return err
+				}
+				// A source that answers the question, so nothing but the missing
+				// answerer or the spent budget can be what stops it.
+				body := "Call them customers, never clients. The product is a mattress."
+				src, err := notebook.AddSource(ctx, tx, org, nb.ID, notebook.New{Kind: "text", Title: "Voice", Body: body})
+				if err != nil {
+					return err
+				}
+				if err := notebook.SourceRead(ctx, tx, org, src.ID, "Voice", body, notebook.Split(body)); err != nil {
+					return err
+				}
+				m, err = notebook.Ask(ctx, tx, org, nb.ID, "", "what do we call the people who buy from us")
+				return err
+			})
+
+			if err := (&notebookAnswerWorker{n: n}).Work(ctx, job(jobargs.NotebookAnswer{OrgID: org, MessageID: m.ID})); err != nil {
+				t.Fatalf("the job itself failed: %v", err)
+			}
+			tenant(func(ctx context.Context, tx pgx.Tx) error {
+				var err error
+				m, err = notebook.LoadMessage(ctx, tx, m.ID)
+				return err
+			})
+			if m.Status != "failed" {
+				t.Errorf("status = %q, want failed", m.Status)
+			}
+			if m.Answer != tc.want {
+				// An empty answer is what makes the page offer "ask it again", which for
+				// both of these is advice that cannot work.
+				t.Errorf("answer = %q, want %q", m.Answer, tc.want)
+			}
+		})
 	}
 }

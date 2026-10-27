@@ -23,6 +23,20 @@ const WhenTheSourcesCannotSay = "The sources in this notebook do not answer that
 // WhenThereAreNoSources is the answer before anything has been added.
 const WhenThereAreNoSources = "This notebook has no sources yet. Add a page or paste some text, and questions will be answered from it."
 
+// A question can also fail, and two of the ways it fails will fail again in exactly the
+// same way. Saying so is the difference between a reader waiting for a deployment to be
+// finished and a reader pressing Ask all afternoon. The reports hub answers the same
+// shape of question the same way: a deployment with no email sender says so on the
+// sign-in page rather than claiming a link is coming.
+
+// WhenAnsweringIsOff is the answer where no model is configured. Retrying cannot help:
+// nothing about the deployment changes between one question and the next.
+const WhenAnsweringIsOff = "Answering from documents is not switched on for this account. Sources are still read, and the search on this page still finds them."
+
+// WhenTheDayIsSpent is the answer once the day's spending limit for answers is reached.
+// It names tomorrow, because that is when the limit resets and the question will work.
+const WhenTheDayIsSpent = "This account has reached its limit for answering today. Ask again tomorrow and this question will be answered."
+
 // AnswerPrompt is the instruction. It is handed the passages and the question, and no
 // other data at all: there is nothing else for the model to reach for.
 const AnswerPrompt = `You answer a marketing team's question using only the numbered passages below, which come from documents they chose.

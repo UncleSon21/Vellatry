@@ -372,7 +372,13 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
                     {m.status === 'thinking' ? (
                       <p className={css.waiting}>Reading your sources.</p>
                     ) : m.status === 'failed' ? (
-                      <p className={css.waiting}>That did not go through. Ask it again.</p>
+                      // A failure that knows why it failed says so. Two of them will fail
+                      // again in exactly the same way -- no model configured, and the
+                      // day's limit reached -- so telling a reader to ask again is advice
+                      // that cannot work. The worker writes that sentence; an empty one is
+                      // the genuinely transient case, where asking again is the right
+                      // thing to do.
+                      <p className={css.waiting}>{m.answer || 'That did not go through. Ask it again.'}</p>
                     ) : (
                       <p className={css.answer}>{m.answer}</p>
                     )}
