@@ -405,9 +405,15 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
                     )}
                     {m.status !== 'thinking' && (
                       <div className={css.keep}>
-                        <button onClick={() => keep(m)} disabled={busy}>
-                          Keep as a note
-                        </button>
+                        {/* Keeping is for something the notebook said. KeepAnswer
+                            refuses a failed one, so offering it here only produced an
+                            error banner; the question is still worth saving, because a
+                            saved question is one to ask again rather than an answer. */}
+                        {m.status !== 'failed' && (
+                          <button onClick={() => keep(m)} disabled={busy}>
+                            Keep as a note
+                          </button>
+                        )}
                         <button onClick={() => saveRecipe(m)} disabled={busy}>
                           Save the question
                         </button>
