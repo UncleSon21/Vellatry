@@ -170,8 +170,17 @@ func (w *reportDraftWorker) Work(ctx context.Context, job *river.Job[jobargs.Rep
 
 	// The absence rule: with nothing to report there is no report. The team hears why.
 	if snap.Empty() {
+		// Two sections can be missing for one reason: visibility and blindspots both need
+		// AI answers, AI referrals and traffic both need GA4. Omitted keeps a note per
+		// section, which the team preview labels; this reads as one sentence, so a repeated
+		// reason would simply say the same thing twice. Say each once, in the order found.
 		var reasons []string
+		seen := map[string]bool{}
 		for _, n := range snap.Omitted {
+			if seen[n.Reason] {
+				continue
+			}
+			seen[n.Reason] = true
 			reasons = append(reasons, n.Reason)
 		}
 		return db.InTenant(ctx, w.r.Pool, org, func(ctx context.Context, tx pgx.Tx) error {
@@ -179,6 +188,9 @@ func (w *reportDraftWorker) Work(ctx context.Context, job *river.Job[jobargs.Rep
 				Kind: "report_not_drafted", DedupeKey: "report_empty:" + series.ID + ":" + a.Start, Severity: "warning",
 				Title: series.Name + " for " + snap.Period.Label + " was not drafted",
 				Body:  "There was no data to report: " + strings.Join(reasons, "; ") + ".", Link: "/reports", Delivery: "immediate",
+				// Which period this answers, so the page that queued the draft can match it
+				// against what it is waiting for without reading the title.
+				Data: map[string]any{"series_id": series.ID, "period_start": a.Start, "label": snap.Period.Label},
 			})
 			return err
 		})

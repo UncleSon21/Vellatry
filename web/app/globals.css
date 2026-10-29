@@ -145,6 +145,7 @@ label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 4px
 .notice { border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px; font-size: 14px; }
 .notice.error { background: #fef3f2; border: 1px solid #fecdca; }
 .notice.info { background: #f0f9ff; border: 1px solid #b9e6fe; }
+.notice.warn { background: #fffaeb; border: 1px solid #fedf89; }
 .notice.empty { background: var(--panel); color: var(--muted); }
 
 /* An empty place: a dashed slot on paper that says what will fill it. The label reads

@@ -144,7 +144,22 @@ func TestReportLifecycle(t *testing.T) {
 		if n != 1 || notes != 1 {
 			t.Errorf("reports %d, not-drafted notices %d", n, notes)
 		}
-		return err
+		if err != nil {
+			return err
+		}
+		// The reason is the only thing the team gets instead of a report, so it has to
+		// read like a sentence. Sections share causes, so an undeduped join says the
+		// same thing twice.
+		var body string
+		if err := tx.QueryRow(ctx, `SELECT body FROM notifications WHERE kind = 'report_not_drafted'`).Scan(&body); err != nil {
+			return err
+		}
+		for _, reason := range strings.Split(strings.TrimSuffix(strings.TrimPrefix(body, "There was no data to report: "), "."), "; ") {
+			if strings.Count(body, reason) != 1 {
+				t.Errorf("reason %q appears %d times in %q", reason, strings.Count(body, reason), body)
+			}
+		}
+		return nil
 	})
 
 	// Publish, render the PDF, tell the recipients once.
