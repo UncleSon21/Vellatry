@@ -69,7 +69,7 @@ func fixPriority(ctx context.Context, tx pgx.Tx, in Input) (Bundle, error) {
 		return b, err
 	}
 	if len(items) == 0 {
-		b.Empty = "there is nothing waiting: no fixes proposed, no confirmed blindspots and no open site issues."
+		b.Empty = "no fixes are proposed, no blindspots are confirmed and no site issues are open."
 		return b, nil
 	}
 	sort.SliceStable(items, func(i, j int) bool { return items[i].rank > items[j].rank })

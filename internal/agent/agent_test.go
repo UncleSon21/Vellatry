@@ -1,6 +1,9 @@
 package agent
 
 import (
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -175,5 +178,43 @@ func TestCatalogueMatchesRegistry(t *testing.T) {
 		if !found {
 			t.Errorf("%s exists but is not offered", name)
 		}
+	}
+}
+
+// Every Empty is composed into "There is nothing to answer with: " + Empty, so each one
+// has to be the reason that completes that sentence. One written as a sentence of its own
+// stacks two prefixes and two colons in the reader's answer, which is what "what should we
+// fix first" returned on an account with nothing waiting: "There is nothing to answer
+// with: there is nothing waiting: no fixes proposed, ...". Read the reasons out of the
+// package rather than listing them here, so a new one is covered the day it is written.
+func TestEmptyReasonsCompleteTheSentence(t *testing.T) {
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assign := regexp.MustCompile(`\.Empty = "([^"]*)"`)
+	found := 0
+	for _, name := range files {
+		if strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range assign.FindAllStringSubmatch(string(src), -1) {
+			reason := m[1]
+			found++
+			whole := Narrate(Bundle{Empty: reason})
+			if strings.Contains(reason, ":") {
+				t.Errorf("%s: a reason carries its own colon, so the answer reads as two prefixes: %q", name, whole)
+			}
+			if strings.HasPrefix(strings.ToLower(reason), "there is") || strings.HasPrefix(strings.ToLower(reason), "there are") {
+				t.Errorf("%s: a reason repeats the prefix it is composed into: %q", name, whole)
+			}
+		}
+	}
+	if found == 0 {
+		t.Fatal("no Empty reasons found; the pattern this test reads for has changed")
 	}
 }

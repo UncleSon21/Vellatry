@@ -17,6 +17,9 @@ type Bundle = {
   tables?: Table[]
   links?: { label: string; href: string }[]
   actions?: Action[]
+  // Why there was nothing to answer with. Deliberately not rendered: the server composes
+  // it into the answer itself ("There is nothing to answer with: " + empty) and returns
+  // no facts alongside it, so showing it here as well printed the same sentence twice.
   empty?: string
 }
 type Answer = { id: number; status: string; answer?: string; bundle?: Bundle; analysis?: string }
@@ -116,7 +119,6 @@ export function Ask({ from, to }: { from?: string; to?: string }) {
                 {day(bundle.from)} to {day(bundle.to)}
               </p>
             )}
-            {bundle?.empty && <div className="notice empty">{bundle.empty}</div>}
             {bundle?.facts && bundle.facts.length > 0 && (
               <ul className="evidence">
                 {bundle.facts.map((f) => (

@@ -26,7 +26,10 @@ type Bundle struct {
 	Links    []Link   `json:"links,omitempty"`
 	// Actions the answer offers. Nothing runs until the person confirms it.
 	Actions []Action `json:"actions,omitempty"`
-	// Empty says why there is nothing to answer with, when that is the case.
+	// Empty says why there is nothing to answer with, when that is the case. Narrate
+	// composes it as "There is nothing to answer with: " + Empty, so it is the reason that
+	// completes that sentence and not a sentence of its own: one that opens with its own
+	// "there is nothing ..." clause reads back as two stacked prefixes with two colons.
 	Empty string `json:"empty,omitempty"`
 }
 
