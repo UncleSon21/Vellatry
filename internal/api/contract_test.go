@@ -247,3 +247,127 @@ func contractTenant(t *testing.T, pool *pgxpool.Pool) (*httptest.Server, client,
 }
 
 func fptr(v float64) *float64 { return &v }
+
+// ---- the write side ------------------------------------------------------------------
+
+// The read side above checks that what the dashboard asks for is what arrives. Writes
+// fail differently: the api grows a route, no screen ever calls it, and neither half's
+// tests notice, because each half is correct on its own.
+//
+// That is how a destination could be added, and marked broken by the worker with "Add
+// the channel again with a new webhook", while no screen could change its webhook, pause
+// it or remove it. PATCH and DELETE were there the whole time with nothing calling them,
+// so the one instruction the product gave was the one thing it would not let you do.
+//
+// So every mutating route carries a verdict here. An empty orphan means a screen calls
+// it; a reason means the api can do it and no screen offers it, which is either a gap to
+// close or a decision worth writing down. This checks that the list and the router agree
+// and nothing more: it does not re-derive which screen calls what, because a path can be
+// assembled at runtime (/v1/fixes/${id}${path}) and a regex that chased that would fail
+// on correct code. Adding a route makes this fail until someone says which it is.
+type mutation struct {
+	route  string // exactly as server.go registers it
+	orphan string // why no screen calls it; empty when one does
+}
+
+func mutations() []mutation {
+	return []mutation{
+		{route: "DELETE /v1/competitors/{id}"},
+		{route: "DELETE /v1/connections/asana"},
+		{route: "DELETE /v1/connections/google"},
+		{route: "DELETE /v1/destinations/{id}"},
+		{route: "DELETE /v1/notebook-recipes/{recipeId}"},
+		{route: "DELETE /v1/notebooks/{id}", orphan: "a notebook cannot be deleted from the dashboard"},
+		{route: "DELETE /v1/notebooks/{id}/notes/{noteId}"},
+		{route: "DELETE /v1/notebooks/{id}/sources/{sourceId}"},
+		{route: "DELETE /v1/reports/{id}", orphan: "a draft report cannot be deleted from the dashboard"},
+		{route: "DELETE /v1/watchers/{id}", orphan: "a watcher can be turned off but not removed; every watcher is seeded, so there is nothing a user added to remove yet"},
+		{route: "PATCH /v1/destinations/{id}"},
+		{route: "PATCH /v1/fixes/{id}"},
+		{route: "PATCH /v1/hub", orphan: "the hub's slug and whether it is public cannot be changed from the dashboard, which only reads /v1/hub"},
+		{route: "PATCH /v1/keywords/{keyword}", orphan: "a keyword cannot be dismissed or re-tracked from the dashboard"},
+		{route: "PATCH /v1/notebooks/{id}", orphan: "a notebook cannot be renamed from the dashboard"},
+		{route: "PATCH /v1/notebooks/{id}/notes/{noteId}", orphan: "a kept note can be deleted but not edited"},
+		{route: "PATCH /v1/prompts/{id}", orphan: "prompts have no screen at all: they are seeded per topic and only ever read back as part of a topic"},
+		{route: "PATCH /v1/report-series/{id}", orphan: "a series cannot be renamed, repointed at other sections or paused from the dashboard"},
+		{route: "PATCH /v1/reports/{id}"},
+		{route: "PATCH /v1/site/findings/{id}"},
+		{route: "PATCH /v1/topics/{id}"},
+		{route: "PATCH /v1/visibility/blindspots/{id}"},
+		{route: "PATCH /v1/watchers/{id}"},
+		{route: "POST /v1/agent/actions"},
+		{route: "POST /v1/agent/ask"},
+		{route: "POST /v1/brand/test"},
+		{route: "POST /v1/competitors"},
+		{route: "POST /v1/connections/asana/start"},
+		{route: "POST /v1/connections/google/start"},
+		{route: "POST /v1/destinations"},
+		{route: "POST /v1/events/ticket"},
+		{route: "POST /v1/fixes/{id}/asana"},
+		{route: "POST /v1/hub/rotate", orphan: "the public hub URL cannot be rotated from the dashboard, so a leaked link cannot be revoked there"},
+		{route: "POST /v1/keywords/runs"},
+		{route: "POST /v1/notebook-recipes"},
+		{route: "POST /v1/notebooks"},
+		{route: "POST /v1/notebooks/{id}/ask"},
+		{route: "POST /v1/notebooks/{id}/notes"},
+		{route: "POST /v1/notebooks/{id}/sources"},
+		{route: "POST /v1/onboarding"},
+		{route: "POST /v1/onboarding/complete"},
+		{route: "POST /v1/prompts", orphan: "prompts have no screen at all: they are seeded per topic and only ever read back as part of a topic"},
+		{route: "POST /v1/prompts/{id}/check", orphan: "prompts have no screen at all: they are seeded per topic and only ever read back as part of a topic"},
+		{route: "POST /v1/report-series"},
+		{route: "POST /v1/report-series/{id}/drafts"},
+		{route: "POST /v1/reports/{id}/publish"},
+		{route: "POST /v1/reports/{id}/withdraw", orphan: "a published report cannot be withdrawn from the dashboard, which nonetheless renders a withdrawn pill for a state it cannot reach"},
+		{route: "POST /v1/site/crawl"},
+		{route: "POST /v1/topics"},
+		{route: "POST /v1/topics/{id}/merge"},
+		{route: "POST /v1/visibility/blindspots/{id}/asana"},
+		{route: "POST /v1/watchers", orphan: "a watcher cannot be created from the dashboard; the seeded set is all there is"},
+		{route: "PUT /v1/brand"},
+		{route: "PUT /v1/connections/asana/project"},
+		{route: "PUT /v1/connections/{kind}"},
+		{route: "PUT /v1/settings"},
+	}
+}
+
+func TestEveryMutationHasAVerdict(t *testing.T) {
+	src, err := os.ReadFile("server.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	route := regexp.MustCompile(`HandleFunc\("(POST|PUT|PATCH|DELETE) (/v1/[^"]+)"`)
+	registered := map[string]bool{}
+	for _, m := range route.FindAllStringSubmatch(string(src), -1) {
+		registered[m[1]+" "+m[2]] = true
+	}
+	if len(registered) == 0 {
+		t.Fatal("found no mutating routes at all; the pattern this test reads for has changed")
+	}
+	listed := map[string]bool{}
+	for _, m := range mutations() {
+		if listed[m.route] {
+			t.Errorf("%s is listed twice", m.route)
+		}
+		listed[m.route] = true
+	}
+	var unlisted, stale []string
+	for r := range registered {
+		if !listed[r] {
+			unlisted = append(unlisted, r)
+		}
+	}
+	for r := range listed {
+		if !registered[r] {
+			stale = append(stale, r)
+		}
+	}
+	sort.Strings(unlisted)
+	sort.Strings(stale)
+	if len(unlisted) > 0 {
+		t.Errorf("the api mutates with these and nothing says whether a screen calls them: %v", unlisted)
+	}
+	if len(stale) > 0 {
+		t.Errorf("these carry a verdict and the api no longer registers them: %v", stale)
+	}
+}
