@@ -8,7 +8,9 @@ import { day, when } from '@/lib/format'
 
 type Series = { id: string; name: string; period: string; sections: string[]; recipients: string[]; auto_draft: boolean }
 type Report = { id: string; series_name: string; title: string; label: string; status: string; version: number; updated_at: string; published_at: string | null }
-type Hub = { slug: string; url: string; domains: string[]; enabled: boolean }
+// domains is every address that can sign in, the brand's own included; allowed_domains
+// is only the extras, and is the editable half.
+type Hub = { slug: string; url: string; domains: string[]; allowed_domains: string[]; enabled: boolean }
 type Notice = { id: number; kind: string; title: string; body: string; data: { series_id?: string; label?: string }; last_seen_at: string }
 
 export default function ReportsPage() {
@@ -19,6 +21,8 @@ export default function ReportsPage() {
   const hub = useApi<Hub>('/v1/hub')
   const notes = useApi<Notice[]>('/v1/notifications?limit=25')
   const [drafting, setDrafting] = useState<{ series: string; label: string } | null>(null)
+  // null means "showing what the hub has"; a string is what the operator has typed.
+  const [domains, setDomains] = useState<string | null>(null)
   useEvents((e) => {
     if (e.kind.startsWith('report.')) {
       reports.reload()
@@ -44,6 +48,33 @@ export default function ReportsPage() {
   }
 
   const hasSeries = (series.data?.series ?? []).length > 0
+  const h = hub.data
+
+  // The hub is where a client reads published reports, and every control over who can
+  // open it already existed on the api with nothing calling it. Saving domains and
+  // turning the hub off both go through PATCH /v1/hub; rotating is its own route because
+  // it also signs every viewer out.
+  const saveHub = async (body: Record<string, unknown>) => {
+    setError(null)
+    try {
+      await api('/v1/hub', { method: 'PATCH', body: JSON.stringify(body) })
+      hub.reload()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  const rotateHub = async () => {
+    if (!window.confirm('Give the hub a new address? The current link stops working for everyone who has it, and every reader signed in now is signed out. Send them the new link yourself.')) return
+    setError(null)
+    try {
+      await api('/v1/hub/rotate', { method: 'POST' })
+      setDomains(null)
+      hub.reload()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
 
   // Drafting is queued, not immediate, and a period with no data is answered with a
   // reason rather than an empty report. Both outcomes used to arrive somewhere else, so
@@ -106,12 +137,19 @@ export default function ReportsPage() {
         </div>
       ))}
 
-      {hub.data && (
-        <div className="notice info">
-          Your CMO reads reports here: <a href={hub.data.url}>{hub.data.url}</a>. They sign in with a work email at{' '}
-          {hub.data.domains.join(', ') || 'your domain'}; nobody else can open it.
-        </div>
-      )}
+      {h &&
+        (h.enabled ? (
+          <div className="notice info">
+            Your CMO reads reports here: <a href={h.url}>{h.url}</a>. They sign in with a work email at{' '}
+            {h.domains.join(', ') || 'your domain'}; nobody else can open it.
+          </div>
+        ) : (
+          // A hub that is off answers every address as not found, so the line above would
+          // be sending the CMO to a link that does not work.
+          <div className="notice warn">
+            The hub is off, so nothing published is readable: <a href={h.url}>{h.url}</a> answers as if it does not exist. Turn it back on below.
+          </div>
+        ))}
 
       <Card title="Reports">
         <Table
@@ -167,6 +205,44 @@ export default function ReportsPage() {
           ])}
         />
       </Card>
+
+      {h && (
+        <Card title="The hub" sub="The one address your client reads reports at, and who is allowed to open it.">
+          <p className="sub" style={{ marginTop: 0 }}>
+            <a href={h.url}>{h.url}</a>
+          </p>
+          <label className="sub" htmlFor="hub-domains">
+            Anyone with a work email at your own domain can sign in. Add other domains here, separated by commas, for a client or an agency
+            partner.
+          </label>
+          <div className="row" style={{ marginTop: 6 }}>
+            <input
+              id="hub-domains"
+              style={{ flex: 1, minWidth: 260 }}
+              placeholder="theirclient.com.au, partner.com"
+              value={domains ?? h.allowed_domains.join(', ')}
+              onChange={(e) => setDomains(e.target.value)}
+            />
+            <button
+              onClick={() =>
+                saveHub({ allowed_domains: (domains ?? '').split(',').map((d) => d.trim()).filter(Boolean) }).then(() => setDomains(null))
+              }
+              disabled={domains === null}
+            >
+              Save domains
+            </button>
+          </div>
+          <p className="sub">Signing in works for {h.domains.join(', ') || 'your domain'} and for anyone on your team.</p>
+          <div className="row" style={{ marginTop: 10 }}>
+            <button onClick={() => saveHub({ enabled: !h.enabled })}>{h.enabled ? 'Turn the hub off' : 'Turn the hub on'}</button>
+            <button onClick={rotateHub}>Give it a new address</button>
+          </div>
+          <p className="sub">
+            Turning it off makes every published report unreadable without withdrawing any of them. A new address is for when the link has gone
+            somewhere it should not have: the old one stops working and everyone reading now is signed out.
+          </p>
+        </Card>
+      )}
     </>
   )
 }
