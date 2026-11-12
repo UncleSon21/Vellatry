@@ -75,6 +75,21 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
     }
   }
 
+  // Withdrawing takes the report off the hub: it leaves the index and its own link
+  // answers "Report not found. It may have been withdrawn." Nothing is sent to anyone,
+  // because nothing subscribes to the event, so the confirm does not promise otherwise.
+  const withdraw = async () => {
+    const title = report.data?.title ?? 'this report'
+    if (!window.confirm(`Withdraw ${title}? It comes off the hub now and the link stops working for anyone who has it. Nobody is told. You can publish it again later.`)) return
+    setError(null)
+    try {
+      await api(`/v1/reports/${id}/withdraw`, { method: 'POST' })
+      report.reload()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
   const publish = async (confirmUnverified = false) => {
     setError(null)
     try {
@@ -105,21 +120,27 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
           <h1>{r.title}</h1>
           <p className="sub">
             {r.series_name} · {r.snapshot?.period?.label} ·{' '}
-            <Pill tone={r.status === 'published' ? 'good' : undefined}>{r.status}</Pill>
-            {r.published_at ? ` published ${day(r.published_at)}` : ''}
+            <Pill tone={r.status === 'published' ? 'good' : r.status === 'withdrawn' ? 'bad' : undefined}>{r.status}</Pill>
+            {/* The pill already says the status, so the date does not repeat the word,
+                and on a withdrawn report "published 1 Nov" would contradict it. */}
+            {r.published_at ? (r.status === 'withdrawn' ? ` last published ${day(r.published_at)}` : ` on ${day(r.published_at)}`) : ''}
           </p>
         </div>
         <div className="row">
           <Link className="btn" href="/reports">
             All reports
           </Link>
+          {r.status === 'published' && <button onClick={withdraw}>Withdraw</button>}
           <button className="primary" onClick={() => publish(false)}>
-            {r.status === 'published' ? 'Publish a revision' : 'Publish'}
+            {r.status === 'published' ? 'Publish a revision' : r.version > 0 ? 'Publish again' : 'Publish'}
           </button>
         </div>
       </div>
 
       <ErrorNote error={error} />
+      {r.status === 'withdrawn' && (
+        <div className="notice warn">This report is withdrawn: it is off the hub and cannot be edited. Publishing it again puts it back.</div>
+      )}
       {r.unpublished_edits && <div className="notice info">You have changes that the published version does not have yet.</div>}
       {(r.snapshot?.omitted ?? []).length > 0 && (
         <div className="notice info">
@@ -135,7 +156,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
       )}
 
       <Card title="Summary" sub="Your words. Figures are checked against the report before it can be published.">
-        {r.summary_draft && (
+        {r.summary_draft && r.status !== 'withdrawn' && (
           <div className="notice empty" style={{ whiteSpace: 'pre-line' }}>
             <strong>Suggested opening (not published until you use it):</strong>
             <div style={{ marginTop: 6 }}>{r.summary_draft}</div>
@@ -144,9 +165,17 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
             </button>
           </div>
         )}
-        <textarea rows={7} value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="What happened this period, in your own words." />
+        {/* A withdrawn report cannot be saved: the api answers 409 to every edit until it
+            is published again. So the box does not invite words that have nowhere to go. */}
+        <textarea
+          rows={7}
+          value={summary}
+          onChange={(e) => setSummary(e.target.value)}
+          disabled={r.status === 'withdrawn'}
+          placeholder="What happened this period, in your own words."
+        />
         <div className="row" style={{ marginTop: 8 }}>
-          <button onClick={save}>Save</button>
+          {r.status !== 'withdrawn' && <button onClick={save}>Save</button>}
           {r.unverified.length > 0 && <span className="bad">Not in the report: {r.unverified.join(', ')}</span>}
         </div>
       </Card>

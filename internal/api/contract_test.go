@@ -318,7 +318,7 @@ func mutations() []mutation {
 		{route: "POST /v1/report-series"},
 		{route: "POST /v1/report-series/{id}/drafts"},
 		{route: "POST /v1/reports/{id}/publish"},
-		{route: "POST /v1/reports/{id}/withdraw", orphan: "a published report cannot be withdrawn from the dashboard, which nonetheless renders a withdrawn pill for a state it cannot reach"},
+		{route: "POST /v1/reports/{id}/withdraw"},
 		{route: "POST /v1/site/crawl"},
 		{route: "POST /v1/topics"},
 		{route: "POST /v1/topics/{id}/merge"},
