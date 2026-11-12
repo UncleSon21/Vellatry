@@ -54,13 +54,18 @@ export default function ReportsPage() {
   // open it already existed on the api with nothing calling it. Saving domains and
   // turning the hub off both go through PATCH /v1/hub; rotating is its own route because
   // it also signs every viewer out.
+  // Returns whether it saved, so a rejected domain leaves what was typed in the box to
+  // be corrected. Clearing it would answer "partner,com is not a domain" by throwing the
+  // line away.
   const saveHub = async (body: Record<string, unknown>) => {
     setError(null)
     try {
       await api('/v1/hub', { method: 'PATCH', body: JSON.stringify(body) })
       hub.reload()
+      return true
     } catch (e) {
       setError((e as Error).message)
+      return false
     }
   }
 
@@ -69,7 +74,6 @@ export default function ReportsPage() {
     setError(null)
     try {
       await api('/v1/hub/rotate', { method: 'POST' })
-      setDomains(null)
       hub.reload()
     } catch (e) {
       setError((e as Error).message)
@@ -224,9 +228,10 @@ export default function ReportsPage() {
               onChange={(e) => setDomains(e.target.value)}
             />
             <button
-              onClick={() =>
-                saveHub({ allowed_domains: (domains ?? '').split(',').map((d) => d.trim()).filter(Boolean) }).then(() => setDomains(null))
-              }
+              onClick={async () => {
+                const list = (domains ?? '').split(',').map((d) => d.trim()).filter(Boolean)
+                if (await saveHub({ allowed_domains: list })) setDomains(null)
+              }}
               disabled={domains === null}
             >
               Save domains
